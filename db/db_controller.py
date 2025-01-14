@@ -60,3 +60,15 @@ async def delete_module(module_id: int):
     conn = await get_db_connection()
     async with conn.acquire() as connection:
         await connection.execute(query, module_id)
+
+# Получение роли пользователя по Telegram ID
+async def get_user_role(tg_id: int) -> str:
+    query = """
+    SELECT r.name FROM users u
+    JOIN roles r ON u.role_id = r.id
+    WHERE u.tg_id = $1
+    """
+    conn = await get_db_connection()
+    async with conn.acquire() as connection:
+        role = await connection.fetchval(query, tg_id)
+    return role
