@@ -11,7 +11,6 @@ __pycache__/
 
 # Исключаем системные файлы
 .DS_Store
-.env
 .git
 .gitignore
 .dockerignore

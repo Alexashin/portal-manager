@@ -1,9 +1,6 @@
-
-version: '3.9'
-
 services:
-  postgres:
-    image: postgres:15
+  database:
+    image: postgres
     container_name: portal_postgres
     restart: always
     environment:
@@ -15,27 +12,38 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER}"]
+      test: [ "CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}" ]
       interval: 10s
       timeout: 5s
       retries: 5
+
+  adminer:
+    image: adminer
+    restart: always
+    depends_on:
+      - database
+    ports:
+      - 8080:8080
 
   bot:
     build: .
     container_name: portal_bot
     restart: always
     depends_on:
-      postgres:
+      database:
         condition: service_healthy
     environment:
       TZ: Europe/Moscow
       BOT_TOKEN: ${BOT_TOKEN}
-      DB_HOST: postgres
+      DB_HOST: database
       DB_NAME: portal_db
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${DB_PASSWORD}
-    command: python aiogram_run.py
+    volumes:
+      - .:/app
+    command: watchmedo auto-restart --patterns="*.py" --recursive -- python aiogram_run.py
 
 volumes:
   postgres_data:
