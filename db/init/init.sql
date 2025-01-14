@@ -14,6 +14,26 @@ CREATE TABLE
         created_at TIMESTAMP DEFAULT NOW ()
     );
 
+-- Таблица для хранения обучающих модулей
+CREATE TABLE IF NOT EXISTS modules (
+    id SERIAL PRIMARY KEY,              -- Уникальный идентификатор модуля
+    title TEXT NOT NULL,                -- Название модуля
+    description TEXT,                   -- Описание модуля
+    created_at TIMESTAMP DEFAULT NOW()  -- Дата создания модуля
+);
+
+-- Таблица для хранения уроков в модулях
+CREATE TABLE IF NOT EXISTS lessons (
+    id SERIAL PRIMARY KEY,                  -- Уникальный идентификатор урока
+    module_id INT REFERENCES modules(id) ON DELETE CASCADE,  -- Связь с модулем
+    title TEXT NOT NULL,                    -- Название урока
+    content TEXT,                           -- Текстовое содержание урока
+    file_ids TEXT[],                        -- Список ID загруженных файлов (документы, изображения)
+    video_ids TEXT[],                       -- Список ID видеоматериалов
+    lesson_order INT NOT NULL,              -- Порядок урока в модуле
+    created_at TIMESTAMP DEFAULT NOW()      -- Дата добавления урока
+);
+
 -- Наполнение таблицы ролей
 INSERT INTO
     roles (name)
