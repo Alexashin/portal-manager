@@ -4,12 +4,16 @@ from config_loader import DATABASE_URL
 # Создание пула подключений к БД
 db_pool: asyncpg.Pool = None
 
+# Инициализация пула подключений
 async def init_db():
     global db_pool
-    db_pool = await asyncpg.create_pool(DATABASE_URL)
+    if db_pool is None:
+        db_pool = await asyncpg.create_pool(DATABASE_URL)
 
 # Получение подключения из пула
 async def get_db_connection():
+    if db_pool is None:
+        await init_db()
     return db_pool
 
 # Создание нового модуля

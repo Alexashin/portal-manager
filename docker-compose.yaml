@@ -5,7 +5,7 @@ services:
     restart: always
     environment:
       TZ: Europe/Moscow
-      POSTGRES_DB: portal_db
+      POSTGRES_DB: ${DB_NAME}
       POSTGRES_USER: ${DB_USER}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
     ports:
@@ -38,7 +38,7 @@ services:
       TZ: Europe/Moscow
       BOT_TOKEN: ${BOT_TOKEN}
       DB_HOST: database
-      DB_NAME: portal_db
+      DB_NAME: ${DB_NAME}
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${DB_PASSWORD}
     volumes:
