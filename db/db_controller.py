@@ -76,3 +76,15 @@ async def get_user_role(tg_id: int) -> str:
     async with conn.acquire() as connection:
         role = await connection.fetchval(query, tg_id)
     return role
+
+# Получение всех модулей
+async def get_all_modules():
+    query = """
+    SELECT id, title, description
+    FROM modules
+    ORDER BY id
+    """
+    conn = await get_db_connection()
+    async with conn.acquire() as connection:
+        modules = await connection.fetch(query)
+    return [dict(module) for module in modules]

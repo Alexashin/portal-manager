@@ -1,20 +1,52 @@
 from aiogram import Router, F
-from aiogram.filters import Command, CommandStart
+from aiogram.filters import Command
 from aiogram.types import Message, CallbackQuery
-from filters import RoleFilter
-from contexts import ModuleCreation
 from aiogram.fsm.context import FSMContext
-from keyboards.admin_keyboards import get_add_new_lesson_keyboard_markup
-from keyboards.main_keyboards import admin_keyboard
-from db import create_module, add_lesson
+from filters import RoleFilter
+from contexts.module_creation import ModuleCreation
+from keyboards import get_add_new_lesson_keyboard_markup, get_training_management_inline_keyboard, get_admin_keyboard, get_back_keyboard
+from db import create_module, add_lesson, get_all_modules
 
 admin_router = Router()
 
-# Старт создания модуля
-@admin_router.message(RoleFilter("manager"), Command("create_module"))
-async def start_module_creation(message: Message, state: FSMContext):
-    await message.answer("Введите название модуля 📚:")
+# Обработчик кнопки "📚 Управление обучением"
+@admin_router.message(RoleFilter("manager"), F.text == "📚 Управление обучением")
+async def manage_training(message: Message):
+    await message.answer("<b>Управление обучением</b>", reply_markup=get_back_keyboard())
+    await message.answer("Выберите действие:", reply_markup=get_training_management_inline_keyboard())
+
+# Обработчик кнопки "👥 Пользователи"
+@admin_router.message(RoleFilter("manager"), F.text == "👥 Пользователи")
+async def view_users(message: Message):
+    await message.answer("📋 Список пользователей будет здесь.")
+
+# Обработчик кнопки "📊 Статистика"
+@admin_router.message(RoleFilter("manager"), F.text == "📊 Статистика")
+async def view_statistics(message: Message):
+    await message.answer("📈 Статистика будет здесь.")
+
+# Обработчик кнопки "➕ Создать новый модуль"
+@admin_router.callback_query(F.data == "create_new_module")
+async def create_module(callback: CallbackQuery, state: FSMContext):
+    await state.clear()
+    await callback.message.answer("Введите название модуля 📚:")
     await state.set_state(ModuleCreation.waiting_for_module_title)
+
+# Обработчик кнопки "📋 Список модулей"
+@admin_router.callback_query(F.data == "list_modules")
+async def list_modules(callback: CallbackQuery):
+    modules = await get_all_modules()
+    if not modules:
+        await callback.message.answer("❗ Пока нет созданных модулей.", reply_markup=get_back_keyboard())
+        return
+    module_list = "\n".join([f"📚 {module['title']}" for module in modules])
+    await callback.message.answer(f"Доступные модули:\n{module_list}", reply_markup=get_back_keyboard())
+
+# Обработчик кнопки "🔙 Назад"
+@admin_router.message(RoleFilter("manager"), F.text == "🔙 Назад")
+async def back_to_main_menu(message: Message, state: FSMContext):
+    await state.clear()
+    await message.answer("Вы вернулись в главное меню.", reply_markup=get_admin_keyboard())
 
 # Ввод названия модуля
 @admin_router.message(ModuleCreation.waiting_for_module_title)
@@ -102,7 +134,6 @@ async def skip_lesson_video(message: Message, state: FSMContext):
                          reply_markup=get_add_new_lesson_keyboard_markup())
     await state.set_state(ModuleCreation.waiting_for_next_action)
 
-
 # Добавление нового урока
 @admin_router.callback_query(F.data == "add_lesson")
 async def add_new_lesson(callback: CallbackQuery, state: FSMContext):
@@ -110,10 +141,10 @@ async def add_new_lesson(callback: CallbackQuery, state: FSMContext):
     await state.set_state(ModuleCreation.waiting_for_lesson_title)
 
 # Завершение модуля
-@admin_router.callback_query(F.data == "finish_module")
+@admin_router.callback_query(F.data == "finish_module", ModuleCreation.waiting_for_next_action)
 async def finish_module(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
-    
+
     # Извлечение данных модуля
     module_title = data.get("module_title")
     module_description = data.get("module_description")
@@ -144,6 +175,4 @@ async def finish_module(callback: CallbackQuery, state: FSMContext):
 
     # Уведомление об успешном создании
     await callback.message.answer(f"📚 Модуль '{module_title}' успешно создан!")
-    await state.clear()
-
-
+    await state.clear() 

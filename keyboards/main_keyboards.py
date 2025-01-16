@@ -26,3 +26,11 @@ def get_employee_keyboard():
         ],
         resize_keyboard=True
     )
+
+def get_back_keyboard():
+    return ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text="🔙 Назад")]
+        ],
+        resize_keyboard=True
+    )

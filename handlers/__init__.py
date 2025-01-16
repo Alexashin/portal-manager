@@ -1,4 +1,4 @@
-from . import admin_handlers
-from . import user_handlers
-
-__all__=['admin_handlers', 'user_handlers']
+from .admin_handlers import *
+from .employee_handlers import *
+from .start_handlers import *
+from .intern_handlers import *
