@@ -1,5 +1,4 @@
-# from aiogram_run import bot
-from aiogram.methods.delete_messages import DeleteMessages
+from aiogram_run import bot
 from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram.fsm.context import FSMContext
@@ -47,11 +46,26 @@ async def open_module(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
     temporary_msgs = data.get("temporary_msgs", [])
     if temporary_msgs != []:
-        await DeleteMessages(chat_id=callback.message.from_user.id, message_ids=list(map(int, temporary_msgs)))
-    await send_lesson(callback.message, state, lessons, 0, module_id)
+        for msg_id in temporary_msgs:
+            await bot.delete_message(chat_id=callback.from_user.id, message_id=msg_id)
+        await state.update_data(temporary_msgs=[])
+    await send_lesson(callback.message, state, 0, module_id)
+
+@intern_router.callback_query(F.data.startswith("open_lesson_"))
+async def change_lesson(callback: CallbackQuery, state: FSMContext):
+    lesson_id = int(callback.data.split("_")[-1])
+    module_id = int(callback.data.split("_")[-2])
+    data = await state.get_data()
+    temporary_msgs = data.get("temporary_msgs", [])
+    if temporary_msgs != []:
+        for msg_id in temporary_msgs:
+            await bot.delete_message(chat_id=callback.from_user.id, message_id=msg_id)
+        await state.update_data(temporary_msgs=[])
+    await send_lesson(callback.message, state, lesson_id, module_id)
 
 # Отправка урока с навигацией
-async def send_lesson(message: Message, state: FSMContext, lessons, index, module_id):
+async def send_lesson(message: Message, state: FSMContext, index, module_id):
+    lessons = await get_lessons_by_module(module_id)
     lesson = lessons[index]
     total_lessons = len(lessons)
 
@@ -59,26 +73,36 @@ async def send_lesson(message: Message, state: FSMContext, lessons, index, modul
 
     buttons = []
     if index > 0:
-        buttons.append(InlineKeyboardButton(text="⬅️ Назад", callback_data=f"lesson_{module_id}_{index - 1}"))
+        buttons.append(InlineKeyboardButton(text="⬅️ Назад", callback_data=f"open_lesson_{module_id}_{index - 1}"))
     if index < total_lessons - 1:
-        buttons.append(InlineKeyboardButton(text="➡️ Вперёд", callback_data=f"lesson_{module_id}_{index + 1}"))
+        buttons.append(InlineKeyboardButton(text="➡️ Вперёд", callback_data=f"open_lesson_{module_id}_{index + 1}"))
     buttons.append(InlineKeyboardButton(text="✅ Завершить", callback_data=f"finish_module_{module_id}"))
 
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[buttons])
-    await message.answer(text)
-
-    temporary_msgs = state.get_data
+    data = await state.get_data()
+    new_temporary_msgs = data.get('temporary_msgs', [])
     
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[buttons])
+    msg = await message.answer(text)
+    new_temporary_msgs.append(msg.message_id)
     for file_id in lesson.get('file_ids', []):
-        state.update_data = await message.answer_document(file_id)
+        msg = await message.answer_document(file_id)
+        new_temporary_msgs.append(msg.message_id)
 
     for video_id in lesson.get('video_ids', []):
-        await message.answer_video(video_id)
-    await message.answer(f"{lesson['content']}")
-    await message.answer("навигация", reply_markup=keyboard)
+        msg = await message.answer_video(video_id)
+        new_temporary_msgs.append(msg.message_id)
+    msg = await message.answer(f"{lesson['content']}")
+    new_temporary_msgs.append(msg.message_id)
+    msg = await message.answer("<b>Продолжим?</b>", reply_markup=keyboard)
+    new_temporary_msgs.append(msg.message_id)
+    await state.update_data(temporary_msgs=new_temporary_msgs)
 
 # Завершение модуля
 @intern_router.callback_query(F.data.startswith("finish_module_"))
 async def finish_module(callback: CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    temporary_msgs = data.get("temporary_msgs", [])
+    for msg_id in temporary_msgs:
+        await bot.delete_message(chat_id=callback.from_user.id, message_id=msg_id)
     await state.clear()
-    await callback.message.answer("🎉 Поздравляем! Вы завершили изучение модуля!")
+    await callback.message.answer("🎉 Поздравляем! Вы завершили изучение модуля!", reply_markup=get_intern_keyboard())

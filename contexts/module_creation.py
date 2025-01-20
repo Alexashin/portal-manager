@@ -1,7 +1,7 @@
 from aiogram.fsm.state import State, StatesGroup
 
 class ModuleCreation(StatesGroup):
-    # Создание модуля
+    # Редактирование названия и описания модуля
     waiting_for_module_title = State()        # Название модуля
     waiting_for_module_description = State()  # Описание модуля
 
