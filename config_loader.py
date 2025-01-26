@@ -1,18 +1,28 @@
 from dotenv import load_dotenv
 import os
 
-load_dotenv()
+ENV = os.getenv("ENV", 'dev')
+if ENV != "prod":
+    load_dotenv(f'.env.{ENV}')
 
-BOT_TOKEN = os.getenv('BOT_TOKEN')
+# Общие переменные
+BOT_TOKEN = os.getenv("BOT_TOKEN")
 if not BOT_TOKEN:
     raise ValueError("BOT_TOKEN не найден в .env!")
-LOGGER_LVL = os.getenv('LOGGER_LVL')
-DB_NAME = os.getenv('DB_NAME')
-DB_USER = os.getenv('DB_USER')
-DB_PASSWORD = os.getenv('DB_PASSWORD')
-# DB_HOST = os.getenv('DB_HOST', 'localhost')
-DB_HOST = 'localhost'
-DATABASE_URL = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:5432/{DB_NAME}"
+os_admin_ids = os.getenv("ADMIN_IDS")
+if not os_admin_ids:
+    raise ValueError("ADMIN_IDS не найден в .env!")
+else:
+    ADMIN_IDS = list(map(int, os_admin_ids.split(",")))
 
-ADMINS = [int(admin_id) for admin_id in os.getenv('ADMIN_IDS').split(',')]
+POSTGRES_DB = os.getenv("POSTGRES_DB")
+POSTGRES_USER = os.getenv("POSTGRES_USER")
+POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD")
 
+# Разные переменные
+DB_HOST = os.getenv("DB_HOST", 'localhost')
+TZ = os.getenv("TZ", "Europe/Moscow")
+LOGGER_LVL = os.getenv("LOGGER_LVL", "INFO")
+
+# Строка подключения к БД
+DATABASE_URL = f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{DB_HOST}:5432/{POSTGRES_DB}"

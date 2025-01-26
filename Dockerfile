@@ -17,4 +17,4 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Запуск бота
-CMD ["python", "aiogram_run.py"]
+CMD ["python", "main.py"]

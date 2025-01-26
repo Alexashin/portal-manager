@@ -135,7 +135,7 @@ async def update_lesson(lesson_id: int, new_title: str, new_content: str, new_fi
     async with conn.acquire() as connection:
         await connection.execute(query, new_title, new_content, new_file_ids, new_video_ids, lesson_id)
 
-# Добавить новый урок в существующий модуль
+# Добавление нового урока в модуль
 async def add_new_lesson_to_module(module_id: int, title: str, content: str, file_ids: list, video_ids: list):
     query = """
     INSERT INTO lessons (module_id, title, content, file_ids, video_ids, lesson_order)
