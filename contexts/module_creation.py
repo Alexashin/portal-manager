@@ -13,3 +13,4 @@ class ModuleCreation(StatesGroup):
 
     # Переход между уроками
     waiting_for_next_action = State()         # Добавить урок или завершить модуль
+    waiting_for_test_creation = State()

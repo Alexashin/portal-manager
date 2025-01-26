@@ -13,7 +13,7 @@ def get_intern_keyboard():
     return ReplyKeyboardMarkup(
         keyboard=[
             [KeyboardButton(text="📖 Доступные модули")],
-            [KeyboardButton(text="📝 Моя статистика")]
+            [KeyboardButton(text="📊 Мой прогресс")]
         ],
         resize_keyboard=True
     )

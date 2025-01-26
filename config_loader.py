@@ -1,9 +1,12 @@
 from dotenv import load_dotenv
 import os
 
-ENV = os.getenv("ENV", 'dev')
-if ENV != "prod":
-    load_dotenv(f'.env.{ENV}')
+if os.getenv("ENV") == 'dev':
+    load_dotenv()
+    DB_HOST = 'localhost'
+    print('Запущено окружение для разработки')
+else:
+    DB_HOST = os.getenv("DB_HOST", 'localhost')
 
 # Общие переменные
 BOT_TOKEN = os.getenv("BOT_TOKEN")
@@ -20,7 +23,7 @@ POSTGRES_USER = os.getenv("POSTGRES_USER")
 POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD")
 
 # Разные переменные
-DB_HOST = os.getenv("DB_HOST", 'localhost')
+
 TZ = os.getenv("TZ", "Europe/Moscow")
 LOGGER_LVL = os.getenv("LOGGER_LVL", "INFO")
 

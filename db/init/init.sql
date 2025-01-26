@@ -16,10 +16,10 @@ CREATE TABLE
 
 -- Таблица для хранения обучающих модулей
 CREATE TABLE IF NOT EXISTS modules (
-    id SERIAL PRIMARY KEY,              -- Уникальный идентификатор модуля
-    title TEXT NOT NULL,                -- Название модуля
-    description TEXT,                   -- Описание модуля
-    created_at TIMESTAMP DEFAULT NOW()  -- Дата создания модуля
+    id SERIAL PRIMARY KEY,                  -- Уникальный идентификатор модуля
+    title TEXT NOT NULL,                    -- Название модуля
+    description TEXT,                       -- Описание модуля
+    created_at TIMESTAMP DEFAULT NOW()      -- Дата создания модуля
 );
 
 -- Таблица для хранения уроков в модулях
@@ -32,6 +32,28 @@ CREATE TABLE IF NOT EXISTS lessons (
     video_ids TEXT[],                       -- Список ID видеоматериалов
     lesson_order INT NOT NULL,              -- Порядок урока в модуле
     created_at TIMESTAMP DEFAULT NOW()      -- Дата добавления урока
+);
+
+-- Таблица для хранения тестов после модулей
+CREATE TABLE IF NOT EXISTS tests (
+    id SERIAL PRIMARY KEY,                  -- Уникальный идентификатор теста
+    module_id INT NOT NULL REFERENCES modules(id) ON DELETE CASCADE,  -- Привязка к модулю
+    question TEXT NOT NULL,                 -- Вопрос
+    option_1 TEXT NOT NULL,                 -- Вариант 1
+    option_2 TEXT NOT NULL,                 -- Вариант 2
+    option_3 TEXT NOT NULL,                 -- Вариант 3
+    option_4 TEXT NOT NULL,                 -- Вариант 4
+    correct_option INT NOT NULL             -- Номер правильного варианта
+);
+
+-- Таблица для хранения результатов тестов после модулей
+CREATE TABLE IF NOT EXISTS user_module_progress (
+    id SERIAL PRIMARY KEY,
+    user_id INT NOT NULL REFERENCES users(tg_id) ON DELETE CASCADE,
+    module_id INT NOT NULL REFERENCES modules(id) ON DELETE CASCADE,
+    is_completed BOOLEAN DEFAULT FALSE,     -- Завершил модуль
+    can_access BOOLEAN DEFAULT FALSE,       -- Имеет доступ
+    last_attempt TIMESTAMP DEFAULT NOW()    -- Дата последнего теста
 );
 
 -- Наполнение таблицы ролей

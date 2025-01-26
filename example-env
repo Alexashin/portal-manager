@@ -1,6 +1,0 @@
-BOT_TOKEN=your_bot_token
-ADMIN_IDS=admin_id,admin_id
-DB_HOST=postgres
-DB_NAME=portal_db
-DB_USER=portal_user
-DB_PASSWORD=your_password
