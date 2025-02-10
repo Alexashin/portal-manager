@@ -91,8 +91,12 @@ async def get_user_role(tg_id: int) -> str:
     """
     conn = await get_db_connection()
     async with conn.acquire() as connection:
-        role = await connection.fetchval(query, tg_id)
-    return role
+        try:
+            role = await connection.fetchval(query, tg_id)
+            return role if role else "unknown"
+        except asyncpg.DataError as e:
+            print(f"Ошибка типа данных в get_user_role: {e}")
+            return "unknown"
 
 
 # Получение всех модулей
@@ -246,6 +250,7 @@ async def get_user_progress(user_id: int):
     async with conn.acquire() as connection:
         return await connection.fetch(query, user_id)
 
+
 # Обновление прогресса стажера
 async def update_module_progress(user_id: int, module_id: int, is_completed: bool):
     query = """
@@ -257,3 +262,221 @@ async def update_module_progress(user_id: int, module_id: int, is_completed: boo
     async with conn.acquire() as connection:
         await connection.execute(query, is_completed, user_id, module_id)
 
+
+async def get_admin_id():
+    query = "SELECT tg_id FROM users WHERE role_id = (SELECT id FROM roles WHERE name = 'manager') LIMIT 1"
+    conn = await get_db_connection()
+    async with conn.acquire() as connection:
+        admin = await connection.fetchrow(query)
+        return admin["tg_id"] if admin else None
+
+
+# Получаем первый модуль
+async def get_first_module():
+    query = """
+    SELECT id, title, description
+    FROM modules
+    ORDER BY id ASC
+    LIMIT 1
+    """
+    conn = await get_db_connection()
+    async with conn.acquire() as connection:
+        return await connection.fetchrow(query)
+
+
+# Получение следующего модуля
+async def get_next_module_id(current_module_id: int):
+    query = """
+    SELECT id FROM modules
+    WHERE id > $1
+    ORDER BY id ASC
+    LIMIT 1
+    """
+    conn = await get_db_connection()
+    async with conn.acquire() as connection:
+        row = await connection.fetchrow(query, current_module_id)
+    return row["id"] if row else None
+
+
+# Делаем модуль доступным для стажёра
+async def make_module_accessible(user_id: int, module_id: int):
+    query = """
+    INSERT INTO user_module_progress (user_id, module_id, can_access)
+    VALUES ($1, $2, TRUE)
+    ON CONFLICT (user_id, module_id) DO UPDATE SET can_access = TRUE
+    """
+    conn = await get_db_connection()
+    async with conn.acquire() as connection:
+        await connection.execute(query, user_id, module_id)
+
+
+# Завершение аттестации
+async def save_exam_result(
+    user_id: int, total_questions: int, correct_answers: int, passed: bool
+):
+    query = """
+    INSERT INTO final_exam_results (user_id, total_questions, correct_answers, passed)
+    VALUES ($1, $2, $3, $4)
+    """
+    conn = await get_db_connection()
+    async with conn.acquire() as connection:
+        await connection.execute(
+            query, user_id, total_questions, correct_answers, passed
+        )
+
+
+# Сохранение ответов пользователя на финальную аттестацию
+async def save_exam_answers(user_id: int, answers: list):
+    query = """
+    INSERT INTO final_exam_answers (user_id, question_id, chosen_option, open_answer, is_correct)
+    VALUES ($1, $2, $3, $4, $5)
+    """
+
+    conn = await get_db_connection()
+    async with conn.acquire() as connection:
+        async with connection.transaction():
+            for answer in answers:
+                await connection.execute(
+                    query,
+                    user_id,
+                    answer["question_id"],
+                    answer.get("chosen_option"),  # NULL для открытых вопросов
+                    answer.get("open_answer"),  # NULL для тестовых вопросов
+                    answer.get(
+                        "is_correct"
+                    ),  # NULL для открытых вопросов (админ проверит)
+                )
+
+
+# Добавление вопроса в финальную аттестацию
+async def add_final_exam_question(
+    question: str,
+    is_open_question: bool,
+    options: list = None,
+    correct_option: int = None,
+):
+    query = """
+    INSERT INTO final_exam_questions (question, is_open_question, option_1, option_2, option_3, option_4, correct_option)
+    VALUES ($1, $2, $3, $4, $5, $6, $7)
+    """
+    conn = await get_db_connection()
+    async with conn.acquire() as connection:
+        await connection.execute(
+            query,
+            question,
+            is_open_question,
+            options[0] if options else None,
+            options[1] if options else None,
+            options[2] if options else None,
+            options[3] if options else None,
+            correct_option,
+        )
+
+
+# Получение всех вопросов финальной аттестации
+async def get_final_exam_questions():
+    query = "SELECT * FROM final_exam_questions"
+    conn = await get_db_connection()
+    async with conn.acquire() as connection:
+        return await connection.fetch(query)
+
+
+# Удаление всех вопросов финальной аттестации
+async def delete_all_final_exam_questions():
+    query = "DELETE FROM final_exam_questions"
+    conn = await get_db_connection()
+    async with conn.acquire() as connection:
+        await connection.execute(query)
+
+
+# Проверка доступа к финальной аттестации
+async def check_final_exam_access(user_id: int) -> bool:
+    query = """
+    SELECT COUNT(*) = (SELECT COUNT(*) FROM modules) 
+    FROM user_module_progress 
+    WHERE user_id = $1 AND is_completed = TRUE;
+    """
+    conn = await get_db_connection()
+    async with conn.acquire() as connection:
+        return await connection.fetchval(query, user_id)
+
+
+async def get_exam_results(user_id: int):
+    query = """
+    SELECT q.question, q.option_1, q.option_2, q.option_3, q.option_4, 
+           q.correct_option, a.selected_option, a.is_correct
+    FROM final_exam_answers a
+    JOIN final_exam_questions q ON a.question_id = q.id
+    WHERE a.user_id = $1
+    """
+    conn = await get_db_connection()
+    async with conn.acquire() as connection:
+        return await connection.fetch(query, user_id)
+
+
+async def reset_exam_attempt(user_id: int):
+    query = """
+    DELETE FROM final_exam_results WHERE user_id = $1;
+    DELETE FROM final_exam_answers WHERE user_id = $1;
+    """
+    conn = await get_db_connection()
+    async with conn.acquire() as connection:
+        await connection.execute(query, user_id)
+
+
+async def promote_to_employee(user_id: int):
+    query = """
+    UPDATE users SET role_id = (SELECT id FROM roles WHERE name = 'employee')
+    WHERE tg_id = $1
+    """
+    conn = await get_db_connection()
+    async with conn.acquire() as connection:
+        await connection.execute(query, user_id)
+
+
+async def get_all_users():
+    query = """
+    SELECT u.tg_id, u.full_name, r.name AS role
+    FROM users u
+    JOIN roles r ON u.role_id = r.id
+    ORDER BY r.name ASC, u.full_name ASC
+    """
+    conn = await get_db_connection()
+    async with conn.acquire() as connection:
+        return await connection.fetch(query)
+
+
+async def get_employee_info(user_id: int):
+    query = """
+    SELECT full_name, created_at FROM users WHERE tg_id = $1
+    """
+    conn = await get_db_connection()
+    async with conn.acquire() as connection:
+        return await connection.fetchrow(query, user_id)
+
+
+async def update_user_role(user_id: int, new_role: str):
+    query = """
+    UPDATE users SET role_id = (SELECT id FROM roles WHERE name = $1) WHERE tg_id = $2
+    """
+    conn = await get_db_connection()
+    async with conn.acquire() as connection:
+        await connection.execute(query, new_role, user_id)
+
+
+async def delete_employee(user_id: int):
+    query = "DELETE FROM users WHERE tg_id = $1"
+    conn = await get_db_connection()
+    async with conn.acquire() as connection:
+        await connection.execute(query, user_id)
+
+
+async def add_employee(user_id: int, full_name: str, role: str):
+    query = """
+    INSERT INTO users (tg_id, role_id, full_name) 
+    VALUES ($1, (SELECT id FROM roles WHERE name = $2), $3)
+    ON CONFLICT (tg_id) DO UPDATE SET role_id = (SELECT id FROM roles WHERE name = $2), full_name = $3
+    """
+    conn = await get_db_connection()
+    async with conn.acquire() as connection:
+        await connection.execute(query, user_id, role, full_name)

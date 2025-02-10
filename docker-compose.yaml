@@ -30,7 +30,7 @@ services:
 
   bot:
     build: .
-    container_name: portal_bot
+    container_name: portal_bot  
     restart: always
     depends_on:
       database:

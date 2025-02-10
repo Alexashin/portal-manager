@@ -1,15 +1,11 @@
 from aiogram_run import bot
 from aiogram import Router, F
-from aiogram.types import (
-    Message,
-    CallbackQuery,
-    InlineKeyboardButton,
-    InlineKeyboardMarkup,
-)
+from aiogram.types import Message, CallbackQuery, ReplyKeyboardRemove
 from aiogram.fsm.context import FSMContext
+from contexts import FinalExamFSM
 from filters import RoleFilter
 import db
-from keyboards import get_back_keyboard, get_intern_keyboard
+from keyboards import *
 
 intern_router = Router()
 
@@ -23,27 +19,27 @@ async def back_to_main_menu(message: Message, state: FSMContext):
     )
 
 
-# Показ доступных модулей для стажёра
 @intern_router.message(RoleFilter("intern"), F.text == "📖 Доступные модули")
 async def show_modules(message: Message):
     user_id = message.from_user.id
+
+    # Проверяем доступные модули
     modules = await db.get_available_modules_for_user(user_id)
 
+    # Если доступных модулей нет, открываем первый модуль
     if not modules:
-        await message.answer("📚 Пока нет доступных модулей.")
+        first_module = await db.get_first_module()
+        if first_module:
+            await db.make_module_accessible(user_id, first_module["id"])
+            modules = [first_module]
+
+    if not modules:
+        await message.answer("❗ У вас пока нет доступных модулей.")
         return
 
-    keyboard = InlineKeyboardMarkup(
-        inline_keyboard=[
-            [
-                InlineKeyboardButton(
-                    text=module["title"], callback_data=f"open_module_{module['id']}"
-                )
-            ]
-            for module in modules
-        ]
+    await message.answer(
+        "📚 Ваши доступные модули:", reply_markup=get_avaible_modules_keyboard(modules)
     )
-    await message.answer("Модули для обучения:", reply_markup=keyboard)
 
 
 # Отображение прогресса
@@ -61,6 +57,21 @@ async def show_progress(message: Message):
         response += f"✔️ {module['title']} (Завершено: {module['completed_at']})\n"
 
     await message.answer(response)
+
+
+# Проверка доступности аттестации
+@intern_router.message(RoleFilter("intern"), F.text == "📝 Аттестация")
+async def check_exam_availability(message: Message):
+    user_id = message.from_user.id
+    exam_access = await db.check_final_exam_access(user_id)
+
+    if exam_access:
+        await message.answer(
+            "🎓 Вы завершили обучение! Теперь вы можете пройти итоговую аттестацию.",
+            reply_markup=get_start_exam_keyboard(),
+        )
+    else:
+        await message.answer("📚 Вам нужно завершить все модули перед аттестацией.")
 
 
 # Открытие выбранного модуля
@@ -233,16 +244,227 @@ async def finish_test(message: Message, state: FSMContext):
         correct_answers / total_questions >= 0.7
     ):  # Успешное прохождение: 70% правильных ответов
         await db.update_module_progress(
-            user_id=message.from_user.id, module_id=module_id, is_completed=True
+            user_id=message.chat.id, module_id=module_id, is_completed=True
         )
-        await message.answer(
-            f"🎉 Вы успешно прошли тест модуля! Правильных ответов: {correct_answers} из {total_questions}.",
-            reply_markup=get_intern_keyboard(),
-        )
+
+        # Делаем следующий модуль доступным
+        next_module_id = await db.get_next_module_id(module_id)
+        if next_module_id:
+            await db.make_module_accessible(message.chat.id, next_module_id)
+            await message.answer(
+                f"🎉 Вы успешно прошли тест модуля! Правильных ответов: {correct_answers} из {total_questions}.\n"
+                f"🔓 Доступ к следующему модулю открыт!",
+                reply_markup=get_intern_keyboard(),
+            )
+        else:
+            await message.answer(
+                f"🎉 Вы успешно прошли тест модуля! Правильных ответов: {correct_answers} из {total_questions}.\n"
+                f"✅ Это был последний модуль!",
+                reply_markup=get_intern_keyboard(),
+            )
     else:
         await message.answer(
-            f"❌ Тест не пройден. Правильных ответов: {correct_answers} из {total_questions}. Повторите модуль.",
+            f"❌ Тест не пройден. Правильных ответов: {correct_answers} из {total_questions}.\n"
+            f"🔁 Повторите модуль и попробуйте снова.",
             reply_markup=get_intern_keyboard(),
         )
 
     await state.clear()
+
+
+# Начало аттестации
+@intern_router.callback_query(F.data == "start_final_exam")
+async def start_final_exam(callback: CallbackQuery, state: FSMContext):
+    questions = await db.get_final_exam_questions()
+
+    if not questions:
+        await callback.message.answer(
+            "❗ В системе пока нет доступных вопросов для аттестации."
+        )
+        return
+
+    await state.update_data(exam_questions=questions, current_question=0, answers=[])
+
+    await callback.message.answer(
+        "📝 Начинаем итоговую аттестацию!", reply_markup=ReplyKeyboardRemove()
+    )
+    await send_next_exam_question(callback.message, state)
+
+
+
+# Отправка следующего вопроса
+async def send_next_exam_question(message: Message, state: FSMContext):
+    data = await state.get_data()
+    questions = data.get("exam_questions", [])
+    current_index = data.get("current_question", 0)
+
+    if current_index >= len(questions):
+        await finish_final_exam(message, state)
+        return
+
+    question = questions[current_index]
+    question_text = f"❓ {question['question']}"
+
+    if question["is_open_question"]:
+        await message.answer(f"{question_text}\nВведите текстовый ответ:")
+        await state.set_state(FinalExamFSM.waiting_for_open_answer)
+    else:
+        await message.answer(
+            question_text, reply_markup=get_exam_answers_keyboard(question)
+        )
+
+    await state.update_data(current_question=current_index + 1)
+
+
+# Обработка тестовых ответов аттестации
+@intern_router.callback_query(F.data.startswith("exam_answer_"))
+async def handle_exam_answer(callback: CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    questions = data.get("exam_questions", [])
+    current_index = data.get("current_question", 0)
+    answers = data.get("answers", [])
+
+    if current_index == 0 or current_index > len(questions):
+        return  # Ошибочный индекс вопроса
+
+    question = questions[current_index - 1]
+    selected_option = int(callback.data.split("_")[-1])
+
+    is_correct = selected_option == question["correct_option"]
+    answers.append(
+        {
+            "question_id": question["id"],
+            "chosen_option": selected_option,
+            "open_answer": None,  # Открытые вопросы отдельно
+            "is_correct": is_correct,
+        }
+    )
+
+    await state.update_data(answers=answers)
+    await send_next_exam_question(callback.message, state)
+
+
+
+# Обработка текстовых ответов на открытые вопросы
+@intern_router.message(RoleFilter("intern"), FinalExamFSM.waiting_for_open_answer)
+async def handle_open_exam_answer(message: Message, state: FSMContext):
+    data = await state.get_data()
+    questions = data.get("exam_questions", [])
+    current_index = data.get("current_question", 0)
+    answers = data.get("answers", [])
+
+    if current_index == 0 or current_index > len(questions):
+        return  # Нет активного вопроса
+
+    question = questions[current_index - 1]  # Берём предыдущий вопрос
+
+    # Записываем ответ пользователя
+    user_answer = message.text.strip()
+    answers.append(
+        {
+            "question_id": question["id"],
+            "chosen_option": None,  # NULL, так как это открытый вопрос
+            "open_answer": user_answer,
+            "is_correct": None,  # Открытые вопросы проверяет админ
+        }
+    )
+
+    await state.update_data(answers=answers)
+
+    # Переходим к следующему вопросу
+    await send_next_exam_question(message, state)
+
+
+
+# Завершение аттестации
+async def finish_final_exam(message: Message, state: FSMContext):
+    data = await state.get_data()
+    user_id = message.from_user.id
+    answers = data.get("answers", [])
+
+    if not answers:
+        await message.answer("❌ Ошибка: не найдены ответы на вопросы.")
+        return
+
+    # Фильтруем тестовые вопросы (у них есть chosen_option) и открытые вопросы (у них есть open_answer)
+    test_answers = [ans for ans in answers if ans.get("chosen_option") is not None]
+    open_answers = [ans for ans in answers if ans.get("open_answer") is not None]
+
+    correct_test_answers = sum(
+        1 for answer in test_answers if answer.get("is_correct") is True
+    )
+    total_test_questions = len(test_answers)
+
+    # Проверка успешного прохождения (ТОЛЬКО для тестовой части)
+    passed = (
+        correct_test_answers / total_test_questions >= 0.7
+        if total_test_questions > 0
+        else False
+    )
+
+    # Сохраняем результат аттестации в `final_exam_results`
+    await db.save_exam_result(
+        user_id, total_test_questions, correct_test_answers, passed
+    )
+
+    # Сохраняем ответы в `final_exam_answers`
+    await db.save_exam_answers(user_id, answers)
+
+    # Отправляем уведомление администратору
+    await notify_admin_about_exam(
+        user_id, correct_test_answers, total_test_questions, passed, open_answers
+    )
+
+    # Очистка состояния FSM
+    await state.clear()
+
+    if passed:
+        await message.answer(
+            f"🎉 Вы успешно прошли аттестацию!\n"
+            f"✔️ {correct_test_answers}/{total_test_questions} правильных тестовых ответов.",
+            reply_markup=get_intern_keyboard(),
+        )
+    else:
+        await message.answer(
+            f"❌ Аттестация не пройдена. ({correct_test_answers}/{total_test_questions})\n"
+            f"Попробуйте снова."
+        )
+
+
+
+# Отправка уведомления администратору
+async def notify_admin_about_exam(
+    user_id: int,
+    correct_test_answers: int,
+    total_test_questions: int,
+    passed: bool,
+    open_answers: list,
+):
+    admin_id = await db.get_admin_id()
+
+    if not admin_id:
+        return  # Если админ не найден, ничего не делаем
+
+    result_text = (
+        "✅ Тестовая часть пройдена" if passed else "❌ Тестовая часть не пройдена"
+    )
+
+    # Формируем текст с результатами открытых вопросов
+    open_answers_text = "\n\n📖 **Открытые вопросы:**\n"
+    if open_answers:
+        for ans in open_answers:
+            open_answers_text += f"➡️ Вопрос {ans['question_id']}:\n💬 Ответ: {ans.get('open_answer', 'Нет ответа')}\n\n"
+    else:
+        open_answers_text = ""
+
+    message_text = (
+        f"📊 **Стажёр {user_id} завершил аттестацию!**\n"
+        f"✔️ {correct_test_answers} / {total_test_questions} правильных тестовых ответов\n"
+        f"{result_text}"
+        f"{open_answers_text}"
+    )
+
+    # Отправка сообщения админу
+    await bot.send_message(
+        admin_id, message_text, reply_markup=get_exam_result_keyboard(user_id)
+    )

@@ -22,3 +22,8 @@ async def start_intern(message: Message, state: FSMContext):
 async def start_employee(message: Message, state: FSMContext):
     await message.answer("👋 Добро пожаловать в рабочий портал!", reply_markup=get_employee_keyboard())
     await state.clear()
+
+@start_router.message(RoleFilter("unknown"), Command("start"))
+async def start_employee(message: Message, state: FSMContext):
+    await message.answer(f"👋 Здравствуйте! Ваш ID:\n<code>{message.from_user.id}</code>")
+    await state.clear()

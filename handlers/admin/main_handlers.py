@@ -3,8 +3,17 @@ from aiogram.types import Message
 from aiogram.fsm.context import FSMContext
 from filters import RoleFilter
 from keyboards import *
+import db
 
 admin_router = Router()
+
+
+async def is_back(message: Message, state: FSMContext) -> bool:
+    if message.text == "🔙 Назад":
+        await back_to_main_menu(message, state)
+        return True
+    else:
+        return False
 
 
 # Обработчик кнопки "🔙 Назад"
@@ -26,8 +35,16 @@ async def manage_training(message: Message):
 
 # Обработчик кнопки "👥 Пользователи"
 @admin_router.message(RoleFilter("manager"), F.text == "👥 Пользователи")
-async def view_users(message: Message):
-    await message.answer("📋 Список пользователей будет здесь.")
+async def list_users(message: Message):
+    users = await db.get_all_users()
+
+    if not users:
+        await message.answer("📌 В системе пока нет пользователей.")
+        return
+
+    await message.answer(
+        "📋 Список пользователей:", reply_markup=get_user_list_keyboard(users)
+    )
 
 
 # Обработчик кнопки "📊 Статистика"

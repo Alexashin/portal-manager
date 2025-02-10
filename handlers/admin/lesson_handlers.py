@@ -4,6 +4,7 @@ from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
 from contexts import ModuleCreation, ModuleEdit
 from keyboards import *
+from handlers.admin.main_handlers import is_back
 import db
 
 admin_router = Router()
@@ -65,6 +66,8 @@ async def manage_lesson(callback: CallbackQuery, state: FSMContext):
 # Ввод названия урока
 @admin_router.message(ModuleCreation.waiting_for_lesson_title)
 async def get_lesson_title(message: Message, state: FSMContext):
+    if await is_back(message, state):
+        return
     await state.update_data(lesson_title=message.text)
     await message.answer("Теперь введите текст для этого урока ✍️:")
     await state.set_state(ModuleCreation.waiting_for_lesson_text)
@@ -73,6 +76,8 @@ async def get_lesson_title(message: Message, state: FSMContext):
 # Ввод текста урока
 @admin_router.message(ModuleCreation.waiting_for_lesson_text)
 async def get_lesson_text(message: Message, state: FSMContext):
+    if await is_back(message, state):
+        return
     await state.update_data(lesson_text=message.text)
     await message.answer("Загрузите файлы для урока 📎 (или напишите /skip):")
     await state.set_state(ModuleCreation.waiting_for_lesson_files)
@@ -177,6 +182,8 @@ async def edit_lesson(callback: CallbackQuery, state: FSMContext):
 # Редактирование названия урока
 @admin_router.message(ModuleEdit.waiting_for_edit_lesson_title, F.text)
 async def edit_lesson_title(message: Message, state: FSMContext):
+    if await is_back(message, state):
+        return
     if message.text.strip().lower() == "/skip":
         await message.answer("Введите новый текст урока (или нажмите /skip):")
     else:
@@ -188,6 +195,8 @@ async def edit_lesson_title(message: Message, state: FSMContext):
 # Редактирование текста урока
 @admin_router.message(ModuleEdit.waiting_for_edit_lesson_text, F.text)
 async def edit_lesson_text(message: Message, state: FSMContext):
+    if await is_back(message, state):
+        return
     if message.text.strip().lower() == "/skip":
         await message.answer(
             "Загрузите новые файлы для урока 📎 (или напишите /skip для удаления):"
