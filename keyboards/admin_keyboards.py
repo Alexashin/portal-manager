@@ -241,7 +241,7 @@ def get_final_exam_question_type_keyboard():
 
 
 def get_exam_result_keyboard(user_id):
-    InlineKeyboardMarkup(
+    return InlineKeyboardMarkup(
         inline_keyboard=[
             [
                 InlineKeyboardButton(

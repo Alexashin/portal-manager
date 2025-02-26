@@ -22,8 +22,8 @@ async def view_exam_results(callback: CallbackQuery):
     correct_count = sum(1 for res in results if res["is_correct"])
     total_questions = len(results)
     accuracy = round((correct_count / total_questions) * 100, 2)
-
-    response = f"📊 **Результаты аттестации для пользователя {user_id}:**\n\n"
+    user_info = await db.get_employee_info(user_id)
+    response = f"📊 **Результаты аттестации для пользователя {user_info['full_name']}:**\n\n"
     response += (
         f"✔️ Правильных ответов: {correct_count} / {total_questions} ({accuracy}%)\n\n"
     )
@@ -46,9 +46,9 @@ async def reject_exam(callback: CallbackQuery):
 
     # Удаляем результаты аттестации
     await db.reset_exam_attempt(user_id)
-
+    user_info = await db.get_employee_info(user_id)
     await callback.message.answer(
-        f"❌ Аттестация пользователя {user_id} отклонена. Стажёру необходимо пройти обучение заново."
+        f"❌ Аттестация пользователя {user_info['full_name']} отклонена. Стажёру необходимо пройти обучение заново."
     )
 
     # Уведомляем пользователя о необходимости повторного обучения
@@ -68,9 +68,9 @@ async def approve_exam(callback: CallbackQuery):
 
     # Обновляем роль пользователя в БД
     await db.promote_to_employee(user_id)
-
+    user_info = await db.get_employee_info(user_id)
     await callback.message.answer(
-        f"✅ Пользователь {user_id} успешно прошёл аттестацию и теперь является сотрудником."
+        f"✅ Пользователь {user_info['full_name']} успешно прошёл аттестацию и теперь является сотрудником."
     )
 
     # Уведомляем пользователя о повышении

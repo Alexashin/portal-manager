@@ -11,6 +11,7 @@ def register_routers(dp):
     dp.include_router(admin_test_router)
     dp.include_router(admin_user_router)
     dp.include_router(admin_main_router)
+    dp.include_router(admin_exam_router)
     
     # Роутеры стажёра
     dp.include_router(intern_router)

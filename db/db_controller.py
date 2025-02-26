@@ -401,17 +401,17 @@ async def check_final_exam_access(user_id: int) -> bool:
         return await connection.fetchval(query, user_id)
 
 
-async def get_exam_results(user_id: int):
-    query = """
-    SELECT q.question, q.option_1, q.option_2, q.option_3, q.option_4, 
-           q.correct_option, a.selected_option, a.is_correct
-    FROM final_exam_answers a
-    JOIN final_exam_questions q ON a.question_id = q.id
-    WHERE a.user_id = $1
-    """
-    conn = await get_db_connection()
-    async with conn.acquire() as connection:
-        return await connection.fetch(query, user_id)
+# async def get_exam_results(user_id: int):
+#     query = """
+#     SELECT q.question, q.option_1, q.option_2, q.option_3, q.option_4, 
+#            q.correct_option, a.chosen_option, a.is_correct
+#     FROM final_exam_answers a
+#     JOIN final_exam_questions q ON a.question_id = q.id
+#     WHERE a.user_id = $1
+#     """
+#     conn = await get_db_connection()
+#     async with conn.acquire() as connection:
+#         return await connection.fetch(query, user_id)
 
 
 async def reset_exam_attempt(user_id: int):

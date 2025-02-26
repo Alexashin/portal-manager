@@ -188,6 +188,10 @@ async def finish_module(callback: CallbackQuery, state: FSMContext):
 # Отправка следующего вопроса
 async def send_next_question(message: Message, state: FSMContext):
     data = await state.get_data()
+    temp_test_msg = data.get("temp_test_msg", None)
+    if temp_test_msg != None:
+        await bot.delete_message(chat_id=message.chat.id, message_id=temp_test_msg)
+        await state.update_data(temporary_msgs=None)
     questions = data.get("questions", [])
     current_index = data.get("current_question_index", 0)
 
@@ -207,7 +211,8 @@ async def send_next_question(message: Message, state: FSMContext):
         ]
     )
 
-    await message.answer(f"❓ {question['question']}", reply_markup=keyboard)
+    msg = await message.answer(f"❓ {question['question']}", reply_markup=keyboard)
+    await state.update_data(temp_test_msg=msg.message_id)
 
 
 # Обработка ответа
@@ -291,7 +296,6 @@ async def start_final_exam(callback: CallbackQuery, state: FSMContext):
     await send_next_exam_question(callback.message, state)
 
 
-
 # Отправка следующего вопроса
 async def send_next_exam_question(message: Message, state: FSMContext):
     data = await state.get_data()
@@ -344,7 +348,6 @@ async def handle_exam_answer(callback: CallbackQuery, state: FSMContext):
     await send_next_exam_question(callback.message, state)
 
 
-
 # Обработка текстовых ответов на открытые вопросы
 @intern_router.message(RoleFilter("intern"), FinalExamFSM.waiting_for_open_answer)
 async def handle_open_exam_answer(message: Message, state: FSMContext):
@@ -373,7 +376,6 @@ async def handle_open_exam_answer(message: Message, state: FSMContext):
 
     # Переходим к следующему вопросу
     await send_next_exam_question(message, state)
-
 
 
 # Завершение аттестации
@@ -431,7 +433,6 @@ async def finish_final_exam(message: Message, state: FSMContext):
         )
 
 
-
 # Отправка уведомления администратору
 async def notify_admin_about_exam(
     user_id: int,
@@ -464,7 +465,8 @@ async def notify_admin_about_exam(
         f"{open_answers_text}"
     )
 
+    kb = get_exam_result_keyboard(user_id)
+
     # Отправка сообщения админу
-    await bot.send_message(
-        admin_id, message_text, reply_markup=get_exam_result_keyboard(user_id)
-    )
+    # await bot.send_message(admin_id, message_text, reply_markup=kb)
+    await bot.send_message(admin_id, message_text)
