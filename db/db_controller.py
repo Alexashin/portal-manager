@@ -480,3 +480,60 @@ async def add_employee(user_id: int, full_name: str, role: str):
     conn = await get_db_connection()
     async with conn.acquire() as connection:
         await connection.execute(query, user_id, role, full_name)
+
+
+# Получение общей статистики по пользователям
+async def get_user_statistics():
+    query = """
+    SELECT 
+        (SELECT COUNT(*) FROM users WHERE role_id = (SELECT id FROM roles WHERE name = 'manager')) AS managers,
+        (SELECT COUNT(*) FROM users WHERE role_id = (SELECT id FROM roles WHERE name = 'employee')) AS employees,
+        (SELECT COUNT(*) FROM users WHERE role_id = (SELECT id FROM roles WHERE name = 'intern')) AS interns;
+    """
+    conn = await get_db_connection()
+    async with conn.acquire() as connection:
+        return await connection.fetchrow(query)
+
+
+# Получение статистики по обучению
+async def get_training_statistics():
+    query = """
+    SELECT 
+        (SELECT COUNT(*) FROM modules) AS total_modules,
+        (SELECT COUNT(*) FROM lessons) AS total_lessons,
+        (SELECT COUNT(*) FROM tests) AS total_tests,
+        (SELECT COUNT(*) FROM final_exam_questions) AS total_exam_questions;
+    """
+    conn = await get_db_connection()
+    async with conn.acquire() as connection:
+        return await connection.fetchrow(query)
+
+
+# Получение статистики прогресса стажёров
+async def get_progress_statistics():
+    query = """
+    SELECT 
+        COUNT(*) AS completed_modules,
+        AVG(correct_answers::float / total_questions) * 100 AS avg_test_score
+    FROM final_exam_results
+    WHERE passed = TRUE;
+    """
+    conn = await get_db_connection()
+    async with conn.acquire() as connection:
+        return await connection.fetchrow(query)
+
+
+# Получение ТОП-5 стажёров по количеству завершённых модулей
+async def get_top_interns():
+    query = """
+    SELECT u.full_name, COUNT(ump.module_id) AS completed_modules
+    FROM user_module_progress ump
+    JOIN users u ON ump.user_id = u.tg_id
+    WHERE ump.is_completed = TRUE
+    GROUP BY u.full_name
+    ORDER BY completed_modules DESC
+    LIMIT 5;
+    """
+    conn = await get_db_connection()
+    async with conn.acquire() as connection:
+        return await connection.fetch(query)

@@ -81,3 +81,30 @@ async def approve_exam(callback: CallbackQuery):
         )
     except Exception:
         pass  # Игнорируем ошибку отправки сообщения пользователю
+
+
+# Удаление финальной аттестации
+@admin_router.callback_query(F.data == "delete_final_exam_questions")
+async def confirm_delete_exam(callback: CallbackQuery):
+    await callback.message.answer(
+        "❗ Вы уверены, что хотите удалить всю финальную аттестацию?",
+        reply_markup=get_dangerous_accept_keyboard(action=f"delete_final_exam"),
+    )
+    await callback.answer()
+
+
+# Подтверждение удаления теста
+@admin_router.callback_query(F.data == "accept_delete_final_exam")
+async def delete_test_exam(callback: CallbackQuery):
+    # Удаляем аттестацию из базы данных
+    await db.delete_all_final_exam_questions()
+
+    await callback.message.answer("❌ Аттестация успешно удалена.")
+    await callback.answer()
+
+
+# Отмена удаления аттестации
+@admin_router.callback_query(F.data == "cancel_delete_final_exam")
+async def cancel_delete_test(callback: CallbackQuery):
+    await callback.message.answer("Удаление аттестации отменено.")
+    await callback.answer()

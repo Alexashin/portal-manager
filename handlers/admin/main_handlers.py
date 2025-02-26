@@ -50,4 +50,37 @@ async def list_users(message: Message):
 # Обработчик кнопки "📊 Статистика"
 @admin_router.message(RoleFilter("manager"), F.text == "📊 Статистика")
 async def view_statistics(message: Message):
-    await message.answer("📈 Статистика будет здесь.")
+    
+    # Получаем данные из БД
+    user_stats = await db.get_user_statistics()
+    training_stats = await db.get_training_statistics()
+    progress_stats = await db.get_progress_statistics()
+
+    # Формируем сообщение со статистикой
+    response = "📊 **Общая статистика:**\n\n"
+
+    # Количество пользователей
+    response += f"👥 **Пользователи:**\n"
+    response += f"  🔹 Менеджеров: {user_stats['managers']}\n"
+    response += f"  🔹 Сотрудников: {user_stats['employees']}\n"
+    response += f"  🔹 Стажёров: {user_stats['interns']}\n\n"
+
+    # Количество модулей, уроков, тестов
+    response += f"📚 **Обучение:**\n"
+    response += f"  🔸 Модулей: {training_stats['total_modules']}\n"
+    response += f"  🔸 Уроков: {training_stats['total_lessons']}\n"
+    response += f"  🔸 Тестов: {training_stats['total_tests']}\n"
+    response += f"  🔸 Вопросов в финальной аттестации: {training_stats['total_exam_questions']}\n\n"
+
+    # Статистика тестов и модулей
+    response += f"🎓 **Прогресс обучения:**\n"
+    response += f"  ✅ Завершённых модулей: {progress_stats['completed_modules']}\n"
+    avg_score = (
+        round(progress_stats["avg_test_score"], 2)
+        if progress_stats["avg_test_score"] is not None
+        else 0
+    )
+    response += f"  📈 Средний процент правильных ответов в тестах: {avg_score}%"
+
+    # Отправляем статистику администратору
+    await message.answer(response)

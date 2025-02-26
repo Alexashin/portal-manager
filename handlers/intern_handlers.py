@@ -75,7 +75,7 @@ async def check_exam_availability(message: Message):
 
 
 # Открытие выбранного модуля
-@intern_router.callback_query(F.data.startswith("open_module_"))
+@intern_router.callback_query(RoleFilter("intern"), F.data.startswith("open_module_"))
 async def open_module(callback: CallbackQuery, state: FSMContext):
     module_id = int(callback.data.split("_")[-1])
     lessons = await db.get_lessons_by_module(module_id)
@@ -94,7 +94,7 @@ async def open_module(callback: CallbackQuery, state: FSMContext):
     await send_lesson(callback.message, state, 0, module_id)
 
 
-@intern_router.callback_query(F.data.startswith("open_lesson_"))
+@intern_router.callback_query(RoleFilter("intern"), F.data.startswith("open_lesson_"))
 async def change_lesson(callback: CallbackQuery, state: FSMContext):
     lesson_id = int(callback.data.split("_")[-1])
     module_id = int(callback.data.split("_")[-2])
@@ -155,7 +155,7 @@ async def send_lesson(message: Message, state: FSMContext, index, module_id):
 
 
 # Завершение модуля
-@intern_router.callback_query(F.data.startswith("finish_module_"))
+@intern_router.callback_query(RoleFilter("intern"), F.data.startswith("finish_module_"))
 async def finish_module(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
     temporary_msgs = data.get("temporary_msgs", [])
@@ -211,7 +211,7 @@ async def send_next_question(message: Message, state: FSMContext):
 
 
 # Обработка ответа
-@intern_router.callback_query(F.data.startswith("answer_"))
+@intern_router.callback_query(RoleFilter("intern"), F.data.startswith("answer_"))
 async def handle_answer(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
     questions = data.get("questions", [])
@@ -273,7 +273,7 @@ async def finish_test(message: Message, state: FSMContext):
 
 
 # Начало аттестации
-@intern_router.callback_query(F.data == "start_final_exam")
+@intern_router.callback_query(RoleFilter("intern"), F.data == "start_final_exam")
 async def start_final_exam(callback: CallbackQuery, state: FSMContext):
     questions = await db.get_final_exam_questions()
 
@@ -317,7 +317,7 @@ async def send_next_exam_question(message: Message, state: FSMContext):
 
 
 # Обработка тестовых ответов аттестации
-@intern_router.callback_query(F.data.startswith("exam_answer_"))
+@intern_router.callback_query(RoleFilter("intern"), F.data.startswith("exam_answer_"))
 async def handle_exam_answer(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
     questions = data.get("exam_questions", [])
@@ -441,7 +441,7 @@ async def notify_admin_about_exam(
     open_answers: list,
 ):
     admin_id = await db.get_admin_id()
-
+    user_info = await db.get_employee_info(user_id)
     if not admin_id:
         return  # Если админ не найден, ничего не делаем
 
@@ -450,7 +450,7 @@ async def notify_admin_about_exam(
     )
 
     # Формируем текст с результатами открытых вопросов
-    open_answers_text = "\n\n📖 **Открытые вопросы:**\n"
+    open_answers_text = "\n\n📖 <b>Открытые вопросы:</b>\n"
     if open_answers:
         for ans in open_answers:
             open_answers_text += f"➡️ Вопрос {ans['question_id']}:\n💬 Ответ: {ans.get('open_answer', 'Нет ответа')}\n\n"
@@ -458,7 +458,7 @@ async def notify_admin_about_exam(
         open_answers_text = ""
 
     message_text = (
-        f"📊 **Стажёр {user_id} завершил аттестацию!**\n"
+        f"📊 <b>Стажёр {user_info['full_name']} завершил аттестацию!</b>\n"
         f"✔️ {correct_test_answers} / {total_test_questions} правильных тестовых ответов\n"
         f"{result_text}"
         f"{open_answers_text}"

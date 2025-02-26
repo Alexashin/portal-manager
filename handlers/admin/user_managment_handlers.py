@@ -65,7 +65,7 @@ async def view_user(callback: CallbackQuery):
         await callback.message.answer("❗ Данный сотрудник не найден.")
         return
 
-    response = f"📌 **Информация о сотруднике:**\n"
+    response = f"📌 <b>Информация о сотруднике:</b>\n"
     response += f"👤 Имя: {user_info['full_name']}\n"
     response += f"🆔 Telegram ID: {user_id}\n"
     response += f"📅 Дата регистрации: {user_info['created_at']}\n"

@@ -6,6 +6,7 @@ from logging import Logger
 from config_loader import LOGGER_LVL
 import os
 
+
 async def init_logger() -> Logger:
     # Создание папки для логов (если её нет)
     os.makedirs("logs", exist_ok=True)
@@ -20,12 +21,12 @@ async def init_logger() -> Logger:
         format=LOG_FORMAT,
         datefmt=DATE_FORMAT,
         handlers=[
-            logging.FileHandler("logs/bot.log", encoding='utf-8'),  # Логирование в файл
-            logging.StreamHandler()  # Логирование в консоль
-        ]
+            logging.FileHandler("logs/bot.log", encoding="utf-8"),  # Логирование в файл
+            logging.StreamHandler(),  # Логирование в консоль
+        ],
     )
 
-    logger = logging.getLogger(__name__)# Создание папки для логов (если её нет)
+    logger = logging.getLogger(__name__)  # Создание папки для логов (если её нет)
     os.makedirs("logs", exist_ok=True)
 
     # Кастомный формат логирования
@@ -38,12 +39,13 @@ async def init_logger() -> Logger:
         format=LOG_FORMAT,
         datefmt=DATE_FORMAT,
         handlers=[
-            logging.FileHandler("logs/bot.log", encoding='utf-8'),  # Логирование в файл
-            logging.StreamHandler()  # Логирование в консоль
-        ]
+            logging.FileHandler("logs/bot.log", encoding="utf-8"),  # Логирование в файл
+            logging.StreamHandler(),  # Логирование в консоль
+        ],
     )
 
     return logging.getLogger(__name__)
+
 
 async def main():
     logger = await init_logger()
@@ -53,6 +55,7 @@ async def main():
         logger.error("Проверьте Docker!")
         logger.error(ex)
     await start_bot()
+
 
 if __name__ == "__main__":
     asyncio.run(main())
