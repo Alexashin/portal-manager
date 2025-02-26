@@ -7,36 +7,36 @@ from create_bot import bot
 admin_router = Router()
 
 
-# Просмотр результатов аттестации
-@admin_router.callback_query(F.data.startswith("view_exam_results_"))
-async def view_exam_results(callback: CallbackQuery):
-    user_id = int(callback.data.split("_")[-1])
-    results = await db.get_exam_results(user_id)
+# # Просмотр результатов аттестации
+# @admin_router.callback_query(F.data.startswith("view_exam_results_"))
+# async def view_exam_results(callback: CallbackQuery):
+#     user_id = int(callback.data.split("_")[-1])
+#     results = await db.get_exam_results(user_id)
 
-    if not results:
-        await callback.message.answer(
-            "❗ Нет данных по аттестации данного пользователя."
-        )
-        return
+#     if not results:
+#         await callback.message.answer(
+#             "❗ Нет данных по аттестации данного пользователя."
+#         )
+#         return
 
-    correct_count = sum(1 for res in results if res["is_correct"])
-    total_questions = len(results)
-    accuracy = round((correct_count / total_questions) * 100, 2)
-    user_info = await db.get_employee_info(user_id)
-    response = f"📊 **Результаты аттестации для пользователя {user_info['full_name']}:**\n\n"
-    response += (
-        f"✔️ Правильных ответов: {correct_count} / {total_questions} ({accuracy}%)\n\n"
-    )
-    response += "📋 **Ответы пользователя:**\n"
+#     correct_count = sum(1 for res in results if res["is_correct"])
+#     total_questions = len(results)
+#     accuracy = round((correct_count / total_questions) * 100, 2)
+#     user_info = await db.get_employee_info(user_id)
+#     response = f"📊 **Результаты аттестации для пользователя {user_info['full_name']}:**\n\n"
+#     response += (
+#         f"✔️ Правильных ответов: {correct_count} / {total_questions} ({accuracy}%)\n\n"
+#     )
+#     response += "📋 **Ответы пользователя:**\n"
 
-    for idx, res in enumerate(results, 1):
-        response += f"\n❓ {res['question']}\n"
-        response += f"✅ Правильный ответ: {res[f'option_{res['correct_option']}']}\n"
-        response += (
-            f"🔘 Ответ пользователя: {res[f'option_{res['selected_option']}']}\n"
-        )
+#     for idx, res in enumerate(results, 1):
+#         response += f"\n❓ {res['question']}\n"
+#         response += f"✅ Правильный ответ: {res[f'option_{res['correct_option']}']}\n"
+#         response += (
+#             f"🔘 Ответ пользователя: {res[f'option_{res['selected_option']}']}\n"
+#         )
 
-    await callback.message.answer(response)
+#     await callback.message.answer(response)
 
 
 # Отклонение аттестации (повторное обучение)
