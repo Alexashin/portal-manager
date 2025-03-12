@@ -92,6 +92,7 @@ async def open_module(callback: CallbackQuery, state: FSMContext):
             await bot.delete_message(chat_id=callback.from_user.id, message_id=msg_id)
         await state.update_data(temporary_msgs=[])
     await send_lesson(callback.message, state, 0, module_id)
+    await callback.answer()
 
 
 @intern_router.callback_query(RoleFilter("intern"), F.data.startswith("open_lesson_"))
@@ -105,6 +106,7 @@ async def change_lesson(callback: CallbackQuery, state: FSMContext):
             await bot.delete_message(chat_id=callback.from_user.id, message_id=msg_id)
         await state.update_data(temporary_msgs=[])
     await send_lesson(callback.message, state, lesson_id, module_id)
+    await callback.answer()
 
 
 # Отправка урока с навигацией
@@ -173,6 +175,7 @@ async def finish_module(callback: CallbackQuery, state: FSMContext):
             "❗ Для этого модуля тест ещё не создан.",
             reply_markup=get_intern_keyboard(),
         )
+        await callback.answer()
         return
 
     # Сохраняем вопросы в FSM
@@ -183,6 +186,7 @@ async def finish_module(callback: CallbackQuery, state: FSMContext):
         correct_answers=0,
     )
     await send_next_question(callback.message, state)
+    await callback.answer()
 
 
 # Отправка следующего вопроса
@@ -236,6 +240,7 @@ async def handle_answer(callback: CallbackQuery, state: FSMContext):
     )
 
     await send_next_question(callback.message, state)
+    await callback.answer()
 
 
 async def finish_test(message: Message, state: FSMContext):
@@ -286,6 +291,7 @@ async def start_final_exam(callback: CallbackQuery, state: FSMContext):
         await callback.message.answer(
             "❗ В системе пока нет доступных вопросов для аттестации."
         )
+        await callback.answer()
         return
 
     await state.update_data(exam_questions=questions, current_question=0, answers=[])
@@ -293,12 +299,17 @@ async def start_final_exam(callback: CallbackQuery, state: FSMContext):
     await callback.message.answer(
         "📝 Начинаем итоговую аттестацию!", reply_markup=ReplyKeyboardRemove()
     )
+    await callback.answer()
     await send_next_exam_question(callback.message, state)
 
 
 # Отправка следующего вопроса
 async def send_next_exam_question(message: Message, state: FSMContext):
     data = await state.get_data()
+    temp_test_msg = data.get("temp_test_msg", None)
+    if temp_test_msg != None:
+        await bot.delete_message(chat_id=message.chat.id, message_id=temp_test_msg)
+        await state.update_data(temporary_msgs=None)
     questions = data.get("exam_questions", [])
     current_index = data.get("current_question", 0)
 
@@ -310,14 +321,15 @@ async def send_next_exam_question(message: Message, state: FSMContext):
     question_text = f"❓ {question['question']}"
 
     if question["is_open_question"]:
-        await message.answer(f"{question_text}\nВведите текстовый ответ:")
+        msg = await message.answer(f"{question_text}\nВведите текстовый ответ:")
         await state.set_state(FinalExamFSM.waiting_for_open_answer)
     else:
-        await message.answer(
+        msg = await message.answer(
             question_text, reply_markup=get_exam_answers_keyboard(question)
         )
 
     await state.update_data(current_question=current_index + 1)
+    await state.update_data(temp_test_msg=msg.message_id)
 
 
 # Обработка тестовых ответов аттестации
@@ -329,6 +341,7 @@ async def handle_exam_answer(callback: CallbackQuery, state: FSMContext):
     answers = data.get("answers", [])
 
     if current_index == 0 or current_index > len(questions):
+        await callback.answer()
         return  # Ошибочный индекс вопроса
 
     question = questions[current_index - 1]
@@ -346,6 +359,7 @@ async def handle_exam_answer(callback: CallbackQuery, state: FSMContext):
 
     await state.update_data(answers=answers)
     await send_next_exam_question(callback.message, state)
+    await callback.answer()
 
 
 # Обработка текстовых ответов на открытые вопросы
