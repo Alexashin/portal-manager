@@ -1,3 +1,57 @@
-from .admin_keyboards import *
-from .main_keyboards import *
-from .intern_keyboards import *
+from .admin_keyboards import (
+    get_add_new_lesson_keyboard_markup,
+    get_exam_attempts_keyboard,
+    get_exam_result_keyboard,
+    get_final_exam_management_keyboard,
+    get_final_exam_question_type_keyboard,
+    get_finish_exam_test_keyboard,
+    get_finish_test_keyboard,
+    get_lesson_management_keyboard,
+    get_lessons_management_keyboard,
+    get_module_management_keyboard,
+    get_modules_admin_keyboard,
+    get_test_management_keyboard,
+    get_training_management_inline_keyboard,
+    get_user_managment_keyboard,
+    get_user_list_keyboard,
+    get_user_role_managment_keyboard,
+    get_user_role_selector_keyboard,
+)
+from .main_keyboards import (
+    get_admin_keyboard,
+    get_back_keyboard,
+    get_dangerous_accept_keyboard,
+    get_employee_keyboard,
+    get_intern_keyboard,
+    get_start_exam_keyboard,
+)
+from .intern_keyboards import get_avaible_modules_keyboard, get_exam_answers_keyboard
+
+
+__all__ = [
+    "get_add_new_lesson_keyboard_markup",
+    "get_exam_attempts_keyboard",
+    "get_exam_result_keyboard",
+    "get_final_exam_management_keyboard",
+    "get_final_exam_question_type_keyboard",
+    "get_finish_exam_test_keyboard",
+    "get_finish_test_keyboard",
+    "get_lesson_management_keyboard",
+    "get_lessons_management_keyboard",
+    "get_module_management_keyboard",
+    "get_modules_admin_keyboard",
+    "get_test_management_keyboard",
+    "get_training_management_inline_keyboard",
+    "get_user_managment_keyboard",
+    "get_user_list_keyboard",
+    "get_user_role_managment_keyboard",
+    "get_user_role_selector_keyboard",
+    "get_admin_keyboard",
+    "get_back_keyboard",
+    "get_dangerous_accept_keyboard",
+    "get_employee_keyboard",
+    "get_intern_keyboard",
+    "get_start_exam_keyboard",
+    "get_avaible_modules_keyboard",
+    "get_exam_answers_keyboard",
+]

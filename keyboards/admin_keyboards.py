@@ -1,13 +1,15 @@
+from typing import Dict, Any
 from aiogram.types import (
     InlineKeyboardMarkup,
     InlineKeyboardButton,
     ReplyKeyboardMarkup,
     KeyboardButton,
 )
+from datetime import datetime as dt
 
 
 # Inline-клавиатура для управления обучением
-def get_training_management_inline_keyboard() -> ReplyKeyboardMarkup:
+def get_training_management_inline_keyboard() -> InlineKeyboardButton:
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
@@ -31,7 +33,7 @@ def get_training_management_inline_keyboard() -> ReplyKeyboardMarkup:
 
 
 # Клавиатура для управления уроками в модуле
-def get_add_new_lesson_keyboard_markup() -> ReplyKeyboardMarkup:
+def get_add_new_lesson_keyboard_markup() -> InlineKeyboardButton:
     keyboard = InlineKeyboardMarkup(
         inline_keyboard=[
             [InlineKeyboardButton(text="➕ Добавить урок", callback_data="add_lesson")],
@@ -45,23 +47,8 @@ def get_add_new_lesson_keyboard_markup() -> ReplyKeyboardMarkup:
     return keyboard
 
 
-# Клавиатура для действий с уроком (пропустить или загрузить файл)
-def get_skip_or_upload_keyboard() -> ReplyKeyboardMarkup:
-    keyboard = InlineKeyboardMarkup(
-        inline_keyboard=[
-            [
-                InlineKeyboardButton(
-                    text="📎 Загрузить файл", callback_data="upload_file"
-                )
-            ],
-            [InlineKeyboardButton(text="⏭ Пропустить", callback_data="skip_step")],
-        ]
-    )
-    return keyboard
-
-
 # Клавиатура для управления модулем
-def get_module_management_keyboard(module_id):
+def get_module_management_keyboard(module_id: int) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
@@ -92,7 +79,7 @@ def get_module_management_keyboard(module_id):
 
 
 # Клавиатура для вывода списка модулей
-def get_modules_admin_keyboard(modules) -> ReplyKeyboardMarkup:
+def get_modules_admin_keyboard(modules: Dict[str, Any]) -> InlineKeyboardMarkup:
     keyboard = [
         [
             InlineKeyboardButton(
@@ -105,7 +92,9 @@ def get_modules_admin_keyboard(modules) -> ReplyKeyboardMarkup:
 
 
 # Клавиатура для управления уроками в модуле
-def get_lessons_management_keyboard(module_id, lessons) -> ReplyKeyboardMarkup:
+def get_lessons_management_keyboard(
+    module_id: int, lessons: Dict[str, Any]
+) -> InlineKeyboardMarkup:
     keyboard = [
         [
             InlineKeyboardButton(
@@ -126,7 +115,7 @@ def get_lessons_management_keyboard(module_id, lessons) -> ReplyKeyboardMarkup:
 
 
 # Клавиатура для управления конкретным уроком
-def get_lesson_management_keyboard(lesson_id):
+def get_lesson_management_keyboard(lesson_id: int) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
@@ -145,7 +134,7 @@ def get_lesson_management_keyboard(lesson_id):
 
 
 # Клавиатура для управления тестами
-def get_test_management_keyboard(module_id):
+def get_test_management_keyboard(module_id: int) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
@@ -169,7 +158,7 @@ def get_test_management_keyboard(module_id):
 
 
 # Клавиатура для завершения создания теста
-def get_finish_test_keyboard():
+def get_finish_test_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
@@ -189,7 +178,7 @@ def get_finish_test_keyboard():
 
 
 # Клавиатура для завершения создания теста
-def get_finish_exam_test_keyboard():
+def get_finish_exam_test_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
@@ -209,7 +198,7 @@ def get_finish_exam_test_keyboard():
 
 
 # Клавиатура для управления финальной аттестацией
-def get_final_exam_management_keyboard():
+def get_final_exam_management_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
@@ -233,22 +222,16 @@ def get_final_exam_management_keyboard():
     )
 
 
-def get_final_exam_question_type_keyboard():
+def get_final_exam_question_type_keyboard() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
         keyboard=[[KeyboardButton(text="✔️ Да"), KeyboardButton(text="✏️ Нет")]],
         resize_keyboard=True,
     )
 
 
-def get_exam_result_keyboard(user_id):
+def get_exam_result_keyboard(user_id: int) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [
-                InlineKeyboardButton(
-                    text="👀 Просмотреть результаты",
-                    callback_data=f"view_exam_results_{user_id}",
-                )
-            ],
             [
                 InlineKeyboardButton(
                     text="❌ Отклонить", callback_data=f"reject_exam_{user_id}"
@@ -263,7 +246,7 @@ def get_exam_result_keyboard(user_id):
     )
 
 
-def get_user_list_keyboard(users):
+def get_user_list_keyboard(users: Dict[str, Any]) -> InlineKeyboardMarkup:
     keyboard = InlineKeyboardMarkup(
         inline_keyboard=[
             [
@@ -285,7 +268,7 @@ def get_user_list_keyboard(users):
     return keyboard
 
 
-def get_user_managment_keyboard(user_id):
+def get_user_managment_keyboard(user_id: int) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
@@ -298,11 +281,31 @@ def get_user_managment_keyboard(user_id):
                     text="🗑 Удалить", callback_data=f"delete_employee_{user_id}"
                 )
             ],
+            [
+                InlineKeyboardButton(
+                    text="📊 История аттестаций",
+                    callback_data=f"view_exam_history_{user_id}",
+                )
+            ],
         ]
     )
 
 
-def get_user_role_managment_keyboard(user_id):
+def get_exam_attempts_keyboard(user_id: int, attempts: list) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=f"Попытка #{attempt['attempt_number']} ({dt.strftime(attempt['attempt_date'], '%d.%m.%Y')})",
+                    callback_data=f"view_exam_attempt_{user_id}_{attempt['attempt_number']}",
+                )
+            ]
+            for attempt in attempts
+        ]
+    )
+
+
+def get_user_role_managment_keyboard(user_id: int) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
@@ -324,7 +327,7 @@ def get_user_role_managment_keyboard(user_id):
     )
 
 
-def get_user_role_selector_keyboard():
+def get_user_role_selector_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [InlineKeyboardButton(text="👤 Стажёр", callback_data="set_role_intern")],

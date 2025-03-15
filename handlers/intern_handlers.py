@@ -1,18 +1,32 @@
+import db
 from aiogram_run import bot
 from aiogram import Router, F
-from aiogram.types import Message, CallbackQuery, ReplyKeyboardRemove
+from aiogram.types import (
+    Message,
+    CallbackQuery,
+    ReplyKeyboardRemove,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+)
 from aiogram.fsm.context import FSMContext
 from contexts import FinalExamFSM
 from filters import RoleFilter
-import db
-from keyboards import *
+
+from keyboards import (
+    get_intern_keyboard,
+    get_avaible_modules_keyboard,
+    get_start_exam_keyboard,
+    get_back_keyboard,
+    get_exam_answers_keyboard,
+    get_exam_result_keyboard,
+)
 
 intern_router = Router()
 
 
 # Обработчик кнопки "🔙 Назад"
 @intern_router.message(RoleFilter("intern"), F.text == "🔙 Назад")
-async def back_to_main_menu(message: Message, state: FSMContext):
+async def back_to_main_menu(message: Message, state: FSMContext) -> None:
     await state.clear()
     await message.answer(
         "Вы вернулись в главное меню.", reply_markup=get_intern_keyboard()
@@ -20,7 +34,7 @@ async def back_to_main_menu(message: Message, state: FSMContext):
 
 
 @intern_router.message(RoleFilter("intern"), F.text == "📖 Доступные модули")
-async def show_modules(message: Message):
+async def show_modules(message: Message) -> None:
     user_id = message.from_user.id
 
     # Проверяем доступные модули
@@ -44,7 +58,7 @@ async def show_modules(message: Message):
 
 # Отображение прогресса
 @intern_router.message(RoleFilter("intern"), F.text == "📊 Мой прогресс")
-async def show_progress(message: Message):
+async def show_progress(message: Message) -> None:
     user_id = message.from_user.id
     progress = await db.get_user_progress(user_id)
 
@@ -61,7 +75,7 @@ async def show_progress(message: Message):
 
 # Проверка доступности аттестации
 @intern_router.message(RoleFilter("intern"), F.text == "📝 Аттестация")
-async def check_exam_availability(message: Message):
+async def check_exam_availability(message: Message) -> None:
     user_id = message.from_user.id
     exam_access = await db.check_final_exam_access(user_id)
 
@@ -76,7 +90,7 @@ async def check_exam_availability(message: Message):
 
 # Открытие выбранного модуля
 @intern_router.callback_query(RoleFilter("intern"), F.data.startswith("open_module_"))
-async def open_module(callback: CallbackQuery, state: FSMContext):
+async def open_module(callback: CallbackQuery, state: FSMContext) -> None:
     module_id = int(callback.data.split("_")[-1])
     lessons = await db.get_lessons_by_module(module_id)
 
@@ -96,7 +110,7 @@ async def open_module(callback: CallbackQuery, state: FSMContext):
 
 
 @intern_router.callback_query(RoleFilter("intern"), F.data.startswith("open_lesson_"))
-async def change_lesson(callback: CallbackQuery, state: FSMContext):
+async def change_lesson(callback: CallbackQuery, state: FSMContext) -> None:
     lesson_id = int(callback.data.split("_")[-1])
     module_id = int(callback.data.split("_")[-2])
     data = await state.get_data()
@@ -110,14 +124,16 @@ async def change_lesson(callback: CallbackQuery, state: FSMContext):
 
 
 # Отправка урока с навигацией
-async def send_lesson(message: Message, state: FSMContext, index, module_id):
+async def send_lesson(
+    message: Message, state: FSMContext, index: int, module_id: int
+) -> None:
     lessons = await db.get_lessons_by_module(module_id)
     lesson = lessons[index]
     total_lessons = len(lessons)
 
     text = f"<b>{lesson['title']}</b>\nФайлы урока:"
 
-    buttons = []
+    buttons = list()
     if index > 0:
         buttons.append(
             InlineKeyboardButton(
@@ -158,7 +174,7 @@ async def send_lesson(message: Message, state: FSMContext, index, module_id):
 
 # Завершение модуля
 @intern_router.callback_query(RoleFilter("intern"), F.data.startswith("finish_module_"))
-async def finish_module(callback: CallbackQuery, state: FSMContext):
+async def finish_module(callback: CallbackQuery, state: FSMContext) -> None:
     data = await state.get_data()
     temporary_msgs = data.get("temporary_msgs", [])
     for msg_id in temporary_msgs:
@@ -190,10 +206,10 @@ async def finish_module(callback: CallbackQuery, state: FSMContext):
 
 
 # Отправка следующего вопроса
-async def send_next_question(message: Message, state: FSMContext):
+async def send_next_question(message: Message, state: FSMContext) -> None:
     data = await state.get_data()
     temp_test_msg = data.get("temp_test_msg", None)
-    if temp_test_msg != None:
+    if temp_test_msg is not None:
         await bot.delete_message(chat_id=message.chat.id, message_id=temp_test_msg)
         await state.update_data(temporary_msgs=None)
     questions = data.get("questions", [])
@@ -221,7 +237,7 @@ async def send_next_question(message: Message, state: FSMContext):
 
 # Обработка ответа
 @intern_router.callback_query(RoleFilter("intern"), F.data.startswith("answer_"))
-async def handle_answer(callback: CallbackQuery, state: FSMContext):
+async def handle_answer(callback: CallbackQuery, state: FSMContext) -> None:
     data = await state.get_data()
     questions = data.get("questions", [])
     current_index = data.get("current_question_index", 0)
@@ -243,15 +259,15 @@ async def handle_answer(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
 
 
-async def finish_test(message: Message, state: FSMContext):
+async def finish_test(message: Message, state: FSMContext) -> None:
     data = await state.get_data()
     module_id = data.get("module_id")
     correct_answers = data.get("correct_answers", 0)
     total_questions = len(data.get("questions", []))
 
     # Проверка прохождения теста
-    if (
-        correct_answers / total_questions >= 0.7
+    if correct_answers / total_questions * 100 >= int(
+        await db.get_bot_setting("exam_pass_percentage") or 70
     ):  # Успешное прохождение: 70% правильных ответов
         await db.update_module_progress(
             user_id=message.chat.id, module_id=module_id, is_completed=True
@@ -284,7 +300,7 @@ async def finish_test(message: Message, state: FSMContext):
 
 # Начало аттестации
 @intern_router.callback_query(RoleFilter("intern"), F.data == "start_final_exam")
-async def start_final_exam(callback: CallbackQuery, state: FSMContext):
+async def start_final_exam(callback: CallbackQuery, state: FSMContext) -> None:
     questions = await db.get_final_exam_questions()
 
     if not questions:
@@ -304,10 +320,10 @@ async def start_final_exam(callback: CallbackQuery, state: FSMContext):
 
 
 # Отправка следующего вопроса
-async def send_next_exam_question(message: Message, state: FSMContext):
+async def send_next_exam_question(message: Message, state: FSMContext) -> None:
     data = await state.get_data()
     temp_test_msg = data.get("temp_test_msg", None)
-    if temp_test_msg != None:
+    if temp_test_msg is not None:
         await bot.delete_message(chat_id=message.chat.id, message_id=temp_test_msg)
         await state.update_data(temporary_msgs=None)
     questions = data.get("exam_questions", [])
@@ -334,7 +350,7 @@ async def send_next_exam_question(message: Message, state: FSMContext):
 
 # Обработка тестовых ответов аттестации
 @intern_router.callback_query(RoleFilter("intern"), F.data.startswith("exam_answer_"))
-async def handle_exam_answer(callback: CallbackQuery, state: FSMContext):
+async def handle_exam_answer(callback: CallbackQuery, state: FSMContext) -> None:
     data = await state.get_data()
     questions = data.get("exam_questions", [])
     current_index = data.get("current_question", 0)
@@ -364,7 +380,7 @@ async def handle_exam_answer(callback: CallbackQuery, state: FSMContext):
 
 # Обработка текстовых ответов на открытые вопросы
 @intern_router.message(RoleFilter("intern"), FinalExamFSM.waiting_for_open_answer)
-async def handle_open_exam_answer(message: Message, state: FSMContext):
+async def handle_open_exam_answer(message: Message, state: FSMContext) -> None:
     data = await state.get_data()
     questions = data.get("exam_questions", [])
     current_index = data.get("current_question", 0)
@@ -393,7 +409,7 @@ async def handle_open_exam_answer(message: Message, state: FSMContext):
 
 
 # Завершение аттестации
-async def finish_final_exam(message: Message, state: FSMContext):
+async def finish_final_exam(message: Message, state: FSMContext) -> None:
     data = await state.get_data()
     user_id = message.from_user.id
     answers = data.get("answers", [])
@@ -413,18 +429,20 @@ async def finish_final_exam(message: Message, state: FSMContext):
 
     # Проверка успешного прохождения (ТОЛЬКО для тестовой части)
     passed = (
-        correct_test_answers / total_test_questions >= 0.7
+        correct_test_answers / total_test_questions * 100
+        >= int(await db.get_bot_setting("exam_pass_percentage") or 70)
         if total_test_questions > 0
         else False
     )
 
+    attempt_number = await db.get_next_attempt_number(user_id)
     # Сохраняем результат аттестации в `final_exam_results`
     await db.save_exam_result(
-        user_id, total_test_questions, correct_test_answers, passed
+        user_id, total_test_questions, correct_test_answers, passed, attempt_number
     )
 
     # Сохраняем ответы в `final_exam_answers`
-    await db.save_exam_answers(user_id, answers)
+    await db.save_exam_answers(user_id, answers, attempt_number)
 
     # Отправляем уведомление администратору
     await notify_admin_about_exam(
@@ -443,7 +461,8 @@ async def finish_final_exam(message: Message, state: FSMContext):
     else:
         await message.answer(
             f"❌ Аттестация не пройдена. ({correct_test_answers}/{total_test_questions})\n"
-            f"Попробуйте снова."
+            f"Попробуйте снова.",
+            reply_markup=get_intern_keyboard(),
         )
 
 
@@ -453,34 +472,43 @@ async def notify_admin_about_exam(
     correct_test_answers: int,
     total_test_questions: int,
     passed: bool,
-    open_answers: list,
-):
-    admin_id = await db.get_admin_id()
+) -> None:
+    admin_id = await db.get_bot_setting("admin_notifications_id")
     user_info = await db.get_employee_info(user_id)
     if not admin_id:
         return  # Если админ не найден, ничего не делаем
+
+    # Получаем номер текущей попытки
+    attempt_number = (
+        int(await db.get_next_attempt_number(user_id)) - 1
+    )  # -1, так как попытка уже сохранена
 
     result_text = (
         "✅ Тестовая часть пройдена" if passed else "❌ Тестовая часть не пройдена"
     )
 
-    # Формируем текст с результатами открытых вопросов
-    open_answers_text = "\n\n📖 <b>Открытые вопросы:</b>\n"
-    if open_answers:
-        for ans in open_answers:
-            open_answers_text += f"➡️ Вопрос {ans['question_id']}:\n💬 Ответ: {ans.get('open_answer', 'Нет ответа')}\n\n"
-    else:
-        open_answers_text = ""
+    answers = await db.get_exam_attempt_answers(user_id, attempt_number)
+
+    # Формируем текст с ответами
+    answers_text = f"\n\n📋 <b>Ответы пользователя {user_info['full_name']}, попытка #{attempt_number}:</b>\n\n"
+    for answer in answers:
+        answers_text += f"❓ {answer['question']}\n"
+        if answer["open_answer"]:
+            answers_text += f"📝 Открытый ответ: {answer['open_answer']}\n\n"
+        else:
+            status = "✅" if answer["is_correct"] else "❌"
+            answers_text += (
+                f"🔘 Выбранный ответ: {status} {answer['chosen_option_text']}\n\n"
+            )
 
     message_text = (
         f"📊 <b>Стажёр {user_info['full_name']} завершил аттестацию!</b>\n"
         f"✔️ {correct_test_answers} / {total_test_questions} правильных тестовых ответов\n"
         f"{result_text}"
-        f"{open_answers_text}"
+        f"{answers_text}"
     )
 
     kb = get_exam_result_keyboard(user_id)
 
     # Отправка сообщения админу
-    # await bot.send_message(admin_id, message_text, reply_markup=kb)
-    await bot.send_message(admin_id, message_text)
+    await bot.send_message(admin_id, message_text, reply_markup=kb)

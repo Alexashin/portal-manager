@@ -52,15 +52,6 @@ async def add_lesson(
         )
 
 
-# Получение всех модулей
-async def get_all_modules():
-    query = "SELECT * FROM modules"
-    conn = await get_db_connection()
-    async with conn.acquire() as connection:
-        modules = await connection.fetch(query)
-    return modules
-
-
 # Получение всех уроков по модулю
 async def get_lessons_by_module(module_id: int):
     query = """
@@ -132,14 +123,6 @@ async def update_module(module_id: int, new_title: str, new_description: str):
         conn = await get_db_connection()
         async with conn.acquire() as connection:
             await connection.execute(query, new_description, module_id)
-
-
-# Удалить модуль
-async def delete_module(module_id: int):
-    query = "DELETE FROM modules WHERE id = $1"
-    conn = await get_db_connection()
-    async with conn.acquire() as connection:
-        await connection.execute(query, module_id)
 
 
 # Удалить конкретный урок по ID
@@ -232,6 +215,7 @@ async def get_available_modules_for_user(user_id: int):
     FROM modules m
     JOIN user_module_progress ump ON m.id = ump.module_id
     WHERE ump.user_id = $1 AND ump.can_access = TRUE
+    ORDER BY m.id ASC;
     """
     conn = await get_db_connection()
     async with conn.acquire() as connection:
@@ -303,7 +287,8 @@ async def make_module_accessible(user_id: int, module_id: int):
     query = """
     INSERT INTO user_module_progress (user_id, module_id, can_access)
     VALUES ($1, $2, TRUE)
-    ON CONFLICT (user_id, module_id) DO UPDATE SET can_access = TRUE
+    ON CONFLICT (user_id, module_id) DO UPDATE 
+    SET can_access = EXCLUDED.can_access
     """
     conn = await get_db_connection()
     async with conn.acquire() as connection:
@@ -312,26 +297,29 @@ async def make_module_accessible(user_id: int, module_id: int):
 
 # Завершение аттестации
 async def save_exam_result(
-    user_id: int, total_questions: int, correct_answers: int, passed: bool
+    user_id: int,
+    total_questions: int,
+    correct_answers: int,
+    passed: bool,
+    attempt_number: int,
 ):
     query = """
-    INSERT INTO final_exam_results (user_id, total_questions, correct_answers, passed)
-    VALUES ($1, $2, $3, $4)
+    INSERT INTO final_exam_results (user_id, attempt_number, total_questions, correct_answers, passed, attempt_date)
+    VALUES ($1, $2, $3, $4, $5, NOW())
     """
     conn = await get_db_connection()
     async with conn.acquire() as connection:
         await connection.execute(
-            query, user_id, total_questions, correct_answers, passed
+            query, user_id, attempt_number, total_questions, correct_answers, passed
         )
 
 
 # Сохранение ответов пользователя на финальную аттестацию
-async def save_exam_answers(user_id: int, answers: list):
+async def save_exam_answers(user_id: int, answers: list, attempt_number: int):
     query = """
-    INSERT INTO final_exam_answers (user_id, question_id, chosen_option, open_answer, is_correct)
-    VALUES ($1, $2, $3, $4, $5)
+    INSERT INTO final_exam_answers (user_id, attempt_number, question_id, chosen_option, open_answer, is_correct, timestamp)
+    VALUES ($1, $2, $3, $4, $5, $6, NOW())
     """
-
     conn = await get_db_connection()
     async with conn.acquire() as connection:
         async with connection.transaction():
@@ -339,12 +327,11 @@ async def save_exam_answers(user_id: int, answers: list):
                 await connection.execute(
                     query,
                     user_id,
+                    attempt_number,
                     answer["question_id"],
                     answer.get("chosen_option"),  # NULL для открытых вопросов
                     answer.get("open_answer"),  # NULL для тестовых вопросов
-                    answer.get(
-                        "is_correct"
-                    ),  # NULL для открытых вопросов (админ проверит)
+                    answer.get("is_correct"),  # NULL для открытых вопросов
                 )
 
 
@@ -401,23 +388,58 @@ async def check_final_exam_access(user_id: int) -> bool:
         return await connection.fetchval(query, user_id)
 
 
-# async def get_exam_results(user_id: int):
-#     query = """
-#     SELECT q.question, q.option_1, q.option_2, q.option_3, q.option_4, 
-#            q.correct_option, a.chosen_option, a.is_correct
-#     FROM final_exam_answers a
-#     JOIN final_exam_questions q ON a.question_id = q.id
-#     WHERE a.user_id = $1
-#     """
-#     conn = await get_db_connection()
-#     async with conn.acquire() as connection:
-#         return await connection.fetch(query, user_id)
-
-
-async def reset_exam_attempt(user_id: int):
+async def get_user_exam_attempts(user_id: int):
     query = """
-    DELETE FROM final_exam_results WHERE user_id = $1;
-    DELETE FROM final_exam_answers WHERE user_id = $1;
+    SELECT attempt_number, attempt_date, correct_answers, total_questions, passed
+    FROM final_exam_results
+    WHERE user_id = $1
+    ORDER BY attempt_number DESC
+    """
+    conn = await get_db_connection()
+    async with conn.acquire() as connection:
+        return await connection.fetch(query, user_id)
+
+
+async def get_exam_attempt_answers(user_id: int, attempt_number: int):
+    query = """SELECT q.question, 
+            a.chosen_option, 
+            a.open_answer, 
+            a.is_correct, 
+            a.timestamp, 
+            CASE a.chosen_option
+                WHEN 1 THEN q.option_1
+                WHEN 2 THEN q.option_2
+                WHEN 3 THEN q.option_3
+                WHEN 4 THEN q.option_4
+                ELSE NULL
+            END AS chosen_option_text
+            FROM final_exam_answers a
+            JOIN final_exam_questions q ON a.question_id = q.id
+            WHERE a.user_id = $1 AND a.attempt_number = $2
+            ORDER BY a.timestamp ASC
+            """
+    conn = await get_db_connection()
+    async with conn.acquire() as connection:
+        return await connection.fetch(query, user_id, attempt_number)
+
+
+async def get_next_attempt_number(user_id: int):
+    query = """
+    SELECT COALESCE(MAX(attempt_number), 0) + 1
+    FROM final_exam_results
+    WHERE user_id = $1
+    """
+    conn = await get_db_connection()
+    async with conn.acquire() as connection:
+        return await connection.fetchval(query, user_id)
+
+
+async def reject_last_exam_attempt(user_id: int):
+    query = """
+    UPDATE final_exam_results
+    SET passed = FALSE
+    WHERE user_id = $1
+    AND attempt_number = (SELECT MAX(attempt_number) FROM final_exam_results WHERE user_id = $1)
     """
     conn = await get_db_connection()
     async with conn.acquire() as connection:
@@ -537,3 +559,23 @@ async def get_top_interns():
     conn = await get_db_connection()
     async with conn.acquire() as connection:
         return await connection.fetch(query)
+
+
+# Получение значения настройки
+async def get_bot_setting(setting_key: str):
+    query = "SELECT value FROM bot_settings WHERE key = $1"
+    conn = await get_db_connection()
+    async with conn.acquire() as connection:
+        result = await connection.fetchval(query, setting_key)
+    return result
+
+
+# Обновление значения настройки
+async def update_bot_setting(setting_key: str, new_value: str):
+    query = """
+    INSERT INTO bot_settings (key, value) VALUES ($1, $2)
+    ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
+    """
+    conn = await get_db_connection()
+    async with conn.acquire() as connection:
+        await connection.execute(query, setting_key, new_value)

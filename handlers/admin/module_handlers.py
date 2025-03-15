@@ -1,11 +1,17 @@
+import db
 from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
 from filters import RoleFilter
-from contexts import ModuleCreation, ModuleEdit, TestCreation
-from keyboards import *
+from contexts import ModuleCreationFSM, ModuleEditFSM, TestCreationFSM
+from keyboards import (
+    get_modules_admin_keyboard,
+    get_module_management_keyboard,
+    get_back_keyboard,
+    get_admin_keyboard,
+    get_dangerous_accept_keyboard,
+)
 from handlers.admin.main_handlers import is_back
-import db
 
 admin_router = Router()
 
@@ -50,23 +56,23 @@ async def edit_module(callback: CallbackQuery, state: FSMContext):
         reply_markup=get_back_keyboard(),
     )
     await callback.answer()
-    await state.set_state(ModuleEdit.waiting_for_edit_module_title)
+    await state.set_state(ModuleEditFSM.waiting_for_edit_module_title)
 
 
 # Обработка нового названия
-@admin_router.message(ModuleEdit.waiting_for_edit_module_title)
-async def save_edited_module(message: Message, state: FSMContext):
+@admin_router.message(ModuleEditFSM.waiting_for_edit_module_title)
+async def get_new_module_title(message: Message, state: FSMContext):
     if await is_back(message, state):
         return
     if message.text != "/skip":
         await state.update_data(new_title=message.text)
     await message.answer("Введите новое описание модуля (или нажмите /skip):")
-    await state.set_state(ModuleEdit.waiting_for_edit_module_description)
+    await state.set_state(ModuleEditFSM.waiting_for_edit_module_description)
 
 
 # Обработка нового описания
-@admin_router.message(ModuleEdit.waiting_for_edit_module_description)
-async def save_edited_module(message: Message, state: FSMContext):
+@admin_router.message(ModuleEditFSM.waiting_for_edit_module_description)
+async def get_new_module_description(message: Message, state: FSMContext):
     if await is_back(message, state):
         return
     if message.text == "/skip":
@@ -77,7 +83,7 @@ async def save_edited_module(message: Message, state: FSMContext):
     new_title = data.get("new_title", "")
 
     await db.update_module(module_id, new_title, new_description)
-    await message.answer(f"✏️ Модуль обновлён!", reply_markup=get_admin_keyboard())
+    await message.answer("✏️ Модуль обновлён!", reply_markup=get_admin_keyboard())
     await state.clear()
 
 
@@ -129,27 +135,27 @@ async def create_module(callback: CallbackQuery, state: FSMContext):
         "Введите название модуля 📚:", reply_markup=get_back_keyboard()
     )
     await callback.answer()
-    await state.set_state(ModuleCreation.waiting_for_module_title)
+    await state.set_state(ModuleCreationFSM.waiting_for_module_title)
 
 
 # Ввод названия модуля
-@admin_router.message(ModuleCreation.waiting_for_module_title)
+@admin_router.message(ModuleCreationFSM.waiting_for_module_title)
 async def get_module_title(message: Message, state: FSMContext):
     if await is_back(message, state):
         return
     await state.update_data(module_title=message.text)
     await message.answer("Теперь введите описание модуля 📝:")
-    await state.set_state(ModuleCreation.waiting_for_module_description)
+    await state.set_state(ModuleCreationFSM.waiting_for_module_description)
 
 
 # Ввод описания модуля
-@admin_router.message(ModuleCreation.waiting_for_module_description)
+@admin_router.message(ModuleCreationFSM.waiting_for_module_description)
 async def get_module_description(message: Message, state: FSMContext):
     if await is_back(message, state):
         return
     await state.update_data(module_description=message.text)
     await message.answer("Добавим первый урок! Введите название урока 📖:")
-    await state.set_state(ModuleCreation.waiting_for_lesson_title)
+    await state.set_state(ModuleCreationFSM.waiting_for_lesson_title)
 
 
 # Завершение модуля
@@ -161,7 +167,9 @@ async def start_test_creation(callback: CallbackQuery, state: FSMContext):
     lessons = data.get("lessons", [])
 
     if not module_title or not lessons:
-        await callback.message.answer("❗ Модуль не может быть создан без названия или уроков.")
+        await callback.message.answer(
+            "❗ Модуль не может быть создан без названия или уроков."
+        )
         return
 
     # Создаём модуль без теста, чтобы сохранить ID для теста
@@ -176,11 +184,13 @@ async def start_test_creation(callback: CallbackQuery, state: FSMContext):
             content=lesson["content"],
             file_ids=lesson["files"],
             video_ids=lesson["videos"],
-            order=order
+            order=order,
         )
 
-    await callback.message.answer("Теперь создайте тест для модуля. Введите текст первого вопроса:", reply_markup=get_back_keyboard())
+    await callback.message.answer(
+        "Теперь создайте тест для модуля. Введите текст первого вопроса:",
+        reply_markup=get_back_keyboard(),
+    )
     await callback.answer()
     await state.update_data(in_module_creation=True)
-    await state.set_state(TestCreation.waiting_for_question)
-
+    await state.set_state(TestCreationFSM.waiting_for_question)

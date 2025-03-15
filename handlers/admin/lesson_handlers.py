@@ -1,11 +1,18 @@
+import db
 from aiogram import Router, F
 from aiogram.filters import Command
 from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
-from contexts import ModuleCreation, ModuleEdit
-from keyboards import *
+from contexts import ModuleCreationFSM, ModuleEditFSM
+from keyboards import (
+    get_lessons_management_keyboard,
+    get_lesson_management_keyboard,
+    get_admin_keyboard,
+    get_back_keyboard,
+    get_add_new_lesson_keyboard_markup,
+    get_dangerous_accept_keyboard,
+)
 from handlers.admin.main_handlers import is_back
-import db
 
 admin_router = Router()
 
@@ -48,43 +55,43 @@ _____________________________________СОЗДАНИЕ УРОКА________________
 async def add_new_lesson(callback: CallbackQuery, state: FSMContext):
     await callback.message.answer("Введите название следующего урока 📖:")
     await callback.answer()
-    await state.set_state(ModuleCreation.waiting_for_lesson_title)
+    await state.set_state(ModuleCreationFSM.waiting_for_lesson_title)
 
 
 # Добавление урока в модуль
 @admin_router.callback_query(F.data.startswith("add_lesson_"))
-async def manage_lesson(callback: CallbackQuery, state: FSMContext):
+async def add_lesson_to_module(callback: CallbackQuery, state: FSMContext):
     module_id = int(callback.data.split("_")[-1])
     await state.update_data(module_id=module_id)
     await callback.message.answer(
         "Введите название урока 📖:", reply_markup=get_back_keyboard()
     )
     await callback.answer()
-    await state.set_state(ModuleCreation.waiting_for_lesson_title)
+    await state.set_state(ModuleCreationFSM.waiting_for_lesson_title)
 
 
 # Ввод названия урока
-@admin_router.message(ModuleCreation.waiting_for_lesson_title)
+@admin_router.message(ModuleCreationFSM.waiting_for_lesson_title)
 async def get_lesson_title(message: Message, state: FSMContext):
     if await is_back(message, state):
         return
     await state.update_data(lesson_title=message.text)
     await message.answer("Теперь введите текст для этого урока ✍️:")
-    await state.set_state(ModuleCreation.waiting_for_lesson_text)
+    await state.set_state(ModuleCreationFSM.waiting_for_lesson_text)
 
 
 # Ввод текста урока
-@admin_router.message(ModuleCreation.waiting_for_lesson_text)
+@admin_router.message(ModuleCreationFSM.waiting_for_lesson_text)
 async def get_lesson_text(message: Message, state: FSMContext):
     if await is_back(message, state):
         return
     await state.update_data(lesson_text=message.text)
     await message.answer("Загрузите файлы для урока 📎 (или напишите /skip):")
-    await state.set_state(ModuleCreation.waiting_for_lesson_files)
+    await state.set_state(ModuleCreationFSM.waiting_for_lesson_files)
 
 
 # Загрузка файлов
-@admin_router.message(ModuleCreation.waiting_for_lesson_files, F.document)
+@admin_router.message(ModuleCreationFSM.waiting_for_lesson_files, F.document)
 async def get_lesson_files(message: Message, state: FSMContext):
     file_id = message.document.file_id
     data = await state.get_data()
@@ -95,15 +102,15 @@ async def get_lesson_files(message: Message, state: FSMContext):
 
 
 # Пропуск загрузки файлов
-@admin_router.message(Command("skip"), ModuleCreation.waiting_for_lesson_files)
+@admin_router.message(Command("skip"), ModuleCreationFSM.waiting_for_lesson_files)
 async def skip_lesson_files(message: Message, state: FSMContext):
     await message.answer("Теперь загрузите обучающее видео 🎥 (или напишите /skip):")
-    await state.set_state(ModuleCreation.waiting_for_lesson_video)
+    await state.set_state(ModuleCreationFSM.waiting_for_lesson_video)
 
 
 # Загрузка видео
-@admin_router.message(ModuleCreation.waiting_for_lesson_video, F.video)
-async def get_lesson_files(message: Message, state: FSMContext):
+@admin_router.message(ModuleCreationFSM.waiting_for_lesson_video, F.video)
+async def get_lesson_video(message: Message, state: FSMContext):
     video_id = message.video.file_id
     data = await state.get_data()
     videos = data.get("lesson_videos", [])
@@ -113,8 +120,8 @@ async def get_lesson_files(message: Message, state: FSMContext):
 
 
 # Пропуск загрузки видео
-@admin_router.message(Command("skip"), ModuleCreation.waiting_for_lesson_video)
-async def get_lesson_video(message: Message, state: FSMContext):
+@admin_router.message(Command("skip"), ModuleCreationFSM.waiting_for_lesson_video)
+async def skip_lesson_video(message: Message, state: FSMContext):
     data = await state.get_data()
     module_id = data.get("module_id", "")
     if module_id != "":
@@ -159,7 +166,7 @@ async def get_lesson_video(message: Message, state: FSMContext):
         "Отлично! Добавить ещё урок или завершить модуль?",
         reply_markup=get_add_new_lesson_keyboard_markup(),
     )
-    await state.set_state(ModuleCreation.waiting_for_next_action)
+    await state.set_state(ModuleCreationFSM.waiting_for_next_action)
 
 
 """
@@ -175,12 +182,12 @@ async def edit_lesson(callback: CallbackQuery, state: FSMContext):
     await callback.message.answer(
         "Введите новое название урока:", reply_markup=get_back_keyboard()
     )
-    await state.set_state(ModuleEdit.waiting_for_edit_lesson_title)
+    await state.set_state(ModuleEditFSM.waiting_for_edit_lesson_title)
     await callback.answer()
 
 
 # Редактирование названия урока
-@admin_router.message(ModuleEdit.waiting_for_edit_lesson_title, F.text)
+@admin_router.message(ModuleEditFSM.waiting_for_edit_lesson_title, F.text)
 async def edit_lesson_title(message: Message, state: FSMContext):
     if await is_back(message, state):
         return
@@ -189,11 +196,11 @@ async def edit_lesson_title(message: Message, state: FSMContext):
     else:
         await state.update_data(new_lesson_title=message.text.strip())
         await message.answer("Введите новый текст урока:")
-    await state.set_state(ModuleEdit.waiting_for_edit_lesson_text)
+    await state.set_state(ModuleEditFSM.waiting_for_edit_lesson_text)
 
 
 # Редактирование текста урока
-@admin_router.message(ModuleEdit.waiting_for_edit_lesson_text, F.text)
+@admin_router.message(ModuleEditFSM.waiting_for_edit_lesson_text, F.text)
 async def edit_lesson_text(message: Message, state: FSMContext):
     if await is_back(message, state):
         return
@@ -206,11 +213,11 @@ async def edit_lesson_text(message: Message, state: FSMContext):
         await message.answer(
             "Загрузите новые файлы для урока 📎 (или напишите /skip для удаления):"
         )
-    await state.set_state(ModuleEdit.waiting_for_edit_lesson_files)
+    await state.set_state(ModuleEditFSM.waiting_for_edit_lesson_files)
 
 
 # Добавление файлов
-@admin_router.message(ModuleEdit.waiting_for_edit_lesson_files, F.document)
+@admin_router.message(ModuleEditFSM.waiting_for_edit_lesson_files, F.document)
 async def edit_lesson_files(message: Message, state: FSMContext):
     file_id = message.document.file_id
     data = await state.get_data()
@@ -223,16 +230,16 @@ async def edit_lesson_files(message: Message, state: FSMContext):
 
 
 # Пропуск добавления файлов
-@admin_router.message(Command("skip"), ModuleEdit.waiting_for_edit_lesson_files)
+@admin_router.message(Command("skip"), ModuleEditFSM.waiting_for_edit_lesson_files)
 async def skip_files(message: Message, state: FSMContext):
     await message.answer(
         "Загрузите обучающее видео 🎥 (или напишите /skip для удаления):"
     )
-    await state.set_state(ModuleEdit.waiting_for_edit_lesson_video)
+    await state.set_state(ModuleEditFSM.waiting_for_edit_lesson_video)
 
 
 # Добавление видео
-@admin_router.message(ModuleEdit.waiting_for_edit_lesson_video, F.video)
+@admin_router.message(ModuleEditFSM.waiting_for_edit_lesson_video, F.video)
 async def edit_lesson_videos(message: Message, state: FSMContext):
     video_id = message.video.file_id
     data = await state.get_data()
@@ -245,7 +252,7 @@ async def edit_lesson_videos(message: Message, state: FSMContext):
 
 
 # Пропуск добавления видео
-@admin_router.message(Command("skip"), ModuleEdit.waiting_for_edit_lesson_video)
+@admin_router.message(Command("skip"), ModuleEditFSM.waiting_for_edit_lesson_video)
 async def skip_videos(message: Message, state: FSMContext):
     await save_edited_lesson(message, state)
 

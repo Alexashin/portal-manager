@@ -1,9 +1,18 @@
+import db
 from aiogram import Router, F
 from aiogram.types import CallbackQuery, Message
 from aiogram.fsm.context import FSMContext
-import db
-from contexts import TestCreation, ModuleCreation, FinalExamCreation
-from keyboards import *
+from contexts import TestCreationFSM, ModuleCreationFSM, FinalExamCreationFSM
+from keyboards import (
+    get_test_management_keyboard,
+    get_back_keyboard,
+    get_finish_test_keyboard,
+    get_admin_keyboard,
+    get_dangerous_accept_keyboard,
+    get_final_exam_management_keyboard,
+    get_final_exam_question_type_keyboard,
+    get_finish_exam_test_keyboard,
+)
 
 admin_router = Router()
 
@@ -28,19 +37,19 @@ async def start_test_creation(callback: CallbackQuery, state: FSMContext):
         "Введите текст первого вопроса:", reply_markup=get_back_keyboard()
     )
     await callback.answer()
-    await state.set_state(TestCreation.waiting_for_question)
+    await state.set_state(TestCreationFSM.waiting_for_question)
 
 
 # Ввод вопроса
-@admin_router.message(TestCreation.waiting_for_question)
+@admin_router.message(TestCreationFSM.waiting_for_question)
 async def add_question_text(message: Message, state: FSMContext):
     await state.update_data(current_question=message.text.strip())
     await message.answer("Введите 4 варианта ответа (каждый с новой строки):")
-    await state.set_state(TestCreation.waiting_for_options)
+    await state.set_state(TestCreationFSM.waiting_for_options)
 
 
 # Ввод вариантов ответа
-@admin_router.message(TestCreation.waiting_for_options)
+@admin_router.message(TestCreationFSM.waiting_for_options)
 async def add_options(message: Message, state: FSMContext):
     options = message.text.strip().split("\n")
     if len(options) != 4:
@@ -49,11 +58,11 @@ async def add_options(message: Message, state: FSMContext):
 
     await state.update_data(current_options=options)
     await message.answer("Какой вариант правильный? Введите номер (1-4):")
-    await state.set_state(TestCreation.waiting_for_correct_option)
+    await state.set_state(TestCreationFSM.waiting_for_correct_option)
 
 
 # Ввод правильного ответа
-@admin_router.message(TestCreation.waiting_for_correct_option)
+@admin_router.message(TestCreationFSM.waiting_for_correct_option)
 async def add_correct_option(message: Message, state: FSMContext):
     try:
         correct_option = int(message.text.strip())
@@ -76,20 +85,20 @@ async def add_correct_option(message: Message, state: FSMContext):
         reply_markup=get_finish_test_keyboard(),
     )
     data = await state.get_data()
-    
+
     in_module_creation = data.get("in_module_creation", False)
     if in_module_creation:
-        await state.set_state(ModuleCreation.waiting_for_test_creation)
+        await state.set_state(ModuleCreationFSM.waiting_for_test_creation)
     else:
-        await state.set_state(TestCreation.waiting_for_next_action)
+        await state.set_state(TestCreationFSM.waiting_for_next_action)
         await state.update_data(module_title=f"#{module_id}")
 
 
 # Завершение создания теста
 @admin_router.callback_query(
-    F.data == "finish_test_creation", ModuleCreation.waiting_for_test_creation
+    F.data == "finish_test_creation", ModuleCreationFSM.waiting_for_test_creation
 )
-async def finish_test_creation(callback: CallbackQuery, state: FSMContext):
+async def finish_test_creation_on_module(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
     module_title = data.get("module_title")
 
@@ -103,7 +112,7 @@ async def finish_test_creation(callback: CallbackQuery, state: FSMContext):
 
 # Завершение создания теста
 @admin_router.callback_query(
-    F.data == "finish_test_creation", TestCreation.waiting_for_next_action
+    F.data == "finish_test_creation", TestCreationFSM.waiting_for_next_action
 )
 async def finish_test_creation(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
@@ -122,7 +131,7 @@ async def finish_test_creation(callback: CallbackQuery, state: FSMContext):
 async def add_another_question(callback: CallbackQuery, state: FSMContext):
     await callback.message.answer("Введите текст следующего вопроса:")
     await callback.answer()
-    await state.set_state(TestCreation.waiting_for_question)
+    await state.set_state(TestCreationFSM.waiting_for_question)
 
 
 # Удаление теста
@@ -197,35 +206,35 @@ async def start_final_exam_creation(callback: CallbackQuery, state: FSMContext):
     await callback.message.answer("Введите текст вопроса:")
     await callback.answer()
     await state.clear()
-    await state.set_state(FinalExamCreation.waiting_for_question)
+    await state.set_state(FinalExamCreationFSM.waiting_for_question)
 
 
 # Ввод вопроса
-@admin_router.message(FinalExamCreation.waiting_for_question)
+@admin_router.message(FinalExamCreationFSM.waiting_for_question)
 async def get_final_exam_question(message: Message, state: FSMContext):
     await state.update_data(question=message.text.strip())
     await message.answer(
         "Этот вопрос с вариантами ответов?",
         reply_markup=get_final_exam_question_type_keyboard(),
     )
-    await state.set_state(FinalExamCreation.waiting_for_question_type)
+    await state.set_state(FinalExamCreationFSM.waiting_for_question_type)
 
 
 # Определение типа вопроса
-@admin_router.message(FinalExamCreation.waiting_for_question_type)
+@admin_router.message(FinalExamCreationFSM.waiting_for_question_type)
 async def get_final_exam_question_type(message: Message, state: FSMContext):
     is_open_question = True if message.text == "✏️ Нет" else False
     await state.update_data(is_open_question=is_open_question)
 
     if not is_open_question:
         await message.answer("Введите 4 варианта ответа (каждый с новой строки):")
-        await state.set_state(FinalExamCreation.waiting_for_options)
+        await state.set_state(FinalExamCreationFSM.waiting_for_options)
     else:
         await save_final_exam_question(message, state)
 
 
 # Ввод вариантов ответа
-@admin_router.message(FinalExamCreation.waiting_for_options)
+@admin_router.message(FinalExamCreationFSM.waiting_for_options)
 async def get_final_exam_options(message: Message, state: FSMContext):
     options = message.text.strip().split("\n")
     if len(options) != 4:
@@ -234,11 +243,11 @@ async def get_final_exam_options(message: Message, state: FSMContext):
 
     await state.update_data(options=options)
     await message.answer("Какой вариант правильный? Введите номер (1-4):")
-    await state.set_state(FinalExamCreation.waiting_for_correct_option)
+    await state.set_state(FinalExamCreationFSM.waiting_for_correct_option)
 
 
 # Ввод правильного ответа
-@admin_router.message(FinalExamCreation.waiting_for_correct_option)
+@admin_router.message(FinalExamCreationFSM.waiting_for_correct_option)
 async def get_final_exam_correct_option(message: Message, state: FSMContext):
     try:
         correct_option = int(message.text.strip())
@@ -268,7 +277,7 @@ async def save_final_exam_question(message: Message, state: FSMContext):
         "Вопрос успешно добавлен! Хотите добавить ещё один или завершить?",
         reply_markup=get_finish_exam_test_keyboard(),
     )
-    await state.set_state(FinalExamCreation.waiting_for_next_action)
+    await state.set_state(FinalExamCreationFSM.waiting_for_next_action)
 
 
 # Завершение создания теста

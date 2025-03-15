@@ -6,7 +6,7 @@ from aiogram.types import (
 )
 
 
-def get_admin_keyboard():
+def get_admin_keyboard() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
         keyboard=[
             [KeyboardButton(text="📚 Управление обучением")],
@@ -19,7 +19,7 @@ def get_admin_keyboard():
     )
 
 
-def get_intern_keyboard():
+def get_intern_keyboard() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
         keyboard=[
             [KeyboardButton(text="📖 Доступные модули")],
@@ -32,7 +32,7 @@ def get_intern_keyboard():
     )
 
 
-def get_start_exam_keyboard():
+def get_start_exam_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
@@ -44,7 +44,7 @@ def get_start_exam_keyboard():
     )
 
 
-def get_employee_keyboard():
+def get_employee_keyboard() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
         keyboard=[
             [KeyboardButton(text="📖 Материалы")],
@@ -54,13 +54,13 @@ def get_employee_keyboard():
     )
 
 
-def get_back_keyboard():
+def get_back_keyboard() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
         keyboard=[[KeyboardButton(text="🔙 Назад")]], resize_keyboard=True
     )
 
 
-def get_dangerous_accept_keyboard(action: str):
+def get_dangerous_accept_keyboard(action: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [InlineKeyboardButton(text="Да", callback_data=f"accept_{action}")],

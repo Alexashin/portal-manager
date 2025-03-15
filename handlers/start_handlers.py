@@ -7,23 +7,33 @@ from keyboards import get_intern_keyboard, get_employee_keyboard, get_admin_keyb
 
 start_router = Router()
 
+
 # Автоматический старт в зависимости от роли
 @start_router.message(RoleFilter("manager"), Command("start"))
-async def start_admin(message: Message, state: FSMContext):
+async def start_admin(message: Message, state: FSMContext) -> None:
     await message.answer("👋 Привет, админ!", reply_markup=get_admin_keyboard())
     await state.clear()
 
+
 @start_router.message(RoleFilter("intern"), Command("start"))
-async def start_intern(message: Message, state: FSMContext):
-    await message.answer("👋 Добро пожаловать на обучение!", reply_markup=get_intern_keyboard())
+async def start_intern(message: Message, state: FSMContext) -> None:
+    await message.answer(
+        "👋 Добро пожаловать на обучение!", reply_markup=get_intern_keyboard()
+    )
     await state.clear()
+
 
 @start_router.message(RoleFilter("employee"), Command("start"))
-async def start_employee(message: Message, state: FSMContext):
-    await message.answer("👋 Добро пожаловать в рабочий портал!", reply_markup=get_employee_keyboard())
+async def start_employee(message: Message, state: FSMContext) -> None:
+    await message.answer(
+        "👋 Добро пожаловать в рабочий портал!", reply_markup=get_employee_keyboard()
+    )
     await state.clear()
 
+
 @start_router.message(RoleFilter("unknown"), Command("start"))
-async def start_employee(message: Message, state: FSMContext):
-    await message.answer(f"👋 Здравствуйте! Ваш ID:\n<code>{message.from_user.id}</code>")
+async def start_unknown(message: Message, state: FSMContext) -> None:
+    await message.answer(
+        f"👋 Здравствуйте! Ваш ID:\n<code>{message.from_user.id}</code>"
+    )
     await state.clear()

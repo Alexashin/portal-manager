@@ -1,9 +1,13 @@
+import db
 from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
 from contexts import EmployeeFSM
-from keyboards import *
-import db
+from keyboards import (
+    get_user_role_selector_keyboard,
+    get_user_managment_keyboard,
+    get_user_role_managment_keyboard,
+)
 
 admin_router = Router()
 
@@ -74,7 +78,7 @@ async def view_user(callback: CallbackQuery):
         await callback.message.answer("❗ Данный сотрудник не найден.")
         return
 
-    response = f"📌 <b>Информация о сотруднике:</b>\n"
+    response = "📌 <b>Информация о сотруднике:</b>\n"
     response += f"👤 Имя: {user_info['full_name']}\n"
     response += f"🆔 Telegram ID: {user_id}\n"
     response += f"📅 Дата регистрации: {user_info['created_at']}\n"

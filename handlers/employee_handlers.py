@@ -1,9 +1,18 @@
+import db
 from aiogram_run import bot
 from aiogram import Router, F
-from aiogram.types import Message, CallbackQuery
+from aiogram.types import (
+    Message,
+    CallbackQuery,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+)
 from aiogram.fsm.context import FSMContext
-import db
-from keyboards import *
+from keyboards import (
+    get_employee_keyboard,
+    get_avaible_modules_keyboard,
+    get_back_keyboard,
+)
 from filters import RoleFilter
 
 employee_router = Router()
@@ -47,14 +56,14 @@ async def open_module(callback: CallbackQuery, state: FSMContext):
     await callback.message.answer(
         "Начато изучение материалов!", reply_markup=get_back_keyboard()
     )
-    
+
     data = await state.get_data()
     temporary_msgs = data.get("temporary_msgs", [])
     if temporary_msgs != []:
         for msg_id in temporary_msgs:
             await bot.delete_message(chat_id=callback.from_user.id, message_id=msg_id)
         await state.update_data(temporary_msgs=[])
-        
+
     await send_lesson(callback.message, state, 0, module_id)
 
 
@@ -71,7 +80,7 @@ async def change_lesson(callback: CallbackQuery, state: FSMContext):
         for msg_id in temporary_msgs:
             await bot.delete_message(chat_id=callback.from_user.id, message_id=msg_id)
         await state.update_data(temporary_msgs=[])
-    
+
     await send_lesson(callback.message, state, lesson_id, module_id)
 
 
@@ -80,7 +89,7 @@ async def send_lesson(message: Message, state: FSMContext, index, module_id):
     lessons = await db.get_lessons_by_module(module_id)
     lesson = lessons[index]
     total_lessons = len(lessons)
-    
+
     text = f"<b>{lesson['title']}</b>\nФайлы урока:"
 
     buttons = []
@@ -104,7 +113,7 @@ async def send_lesson(message: Message, state: FSMContext, index, module_id):
 
     data = await state.get_data()
     new_temporary_msgs = data.get("temporary_msgs", [])
-    
+
     keyboard = InlineKeyboardMarkup(inline_keyboard=[buttons])
     msg = await message.answer(text)
     new_temporary_msgs.append(msg.message_id)
@@ -130,7 +139,7 @@ async def finish_viewing(callback: CallbackQuery, state: FSMContext):
     temporary_msgs = data.get("temporary_msgs", [])
     for msg_id in temporary_msgs:
         await bot.delete_message(chat_id=callback.from_user.id, message_id=msg_id)
-    
+
     await callback.message.answer(
         "✅ Вы завершили просмотр модуля.", reply_markup=get_employee_keyboard()
     )

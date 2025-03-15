@@ -1,12 +1,11 @@
 from aiogram.types import (
-    ReplyKeyboardMarkup,
-    KeyboardButton,
     InlineKeyboardMarkup,
     InlineKeyboardButton,
 )
+from typing import Dict, Any
 
 
-def get_avaible_modules_keyboard(modules: list):
+def get_avaible_modules_keyboard(modules: Dict[str, Any]) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
@@ -19,7 +18,7 @@ def get_avaible_modules_keyboard(modules: list):
     )
 
 
-def get_exam_answers_keyboard(question_data):
+def get_exam_answers_keyboard(question_data: Dict[str, Any]) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [

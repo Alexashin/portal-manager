@@ -1,6 +1,7 @@
 from aiogram.filters import BaseFilter
 from aiogram.types import Message
-from db.db_controller import get_user_role 
+from db.db_controller import get_user_role
+
 
 class RoleFilter(BaseFilter):
     def __init__(self, role: str):
