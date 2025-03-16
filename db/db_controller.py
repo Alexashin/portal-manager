@@ -1,8 +1,11 @@
 import asyncpg
+import logging
 from config_loader import DATABASE_URL
 
 # Создание пула подключений к БД
 db_pool: asyncpg.Pool = None
+
+log = logging.getLogger(__name__)
 
 
 # Инициализация пула подключений
@@ -10,6 +13,7 @@ async def init_db():
     global db_pool
     if db_pool is None:
         db_pool = await asyncpg.create_pool(DATABASE_URL)
+        log.debug("Пул БД создан.")
 
 
 # Получение подключения из пула

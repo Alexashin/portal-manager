@@ -1,4 +1,5 @@
 import db
+import logging
 from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
@@ -14,6 +15,8 @@ from keyboards import (
 from handlers.admin.main_handlers import is_back
 
 admin_router = Router()
+
+log = logging.getLogger(__name__)
 
 
 # Показ списка модулей
@@ -102,6 +105,7 @@ async def delete_selected_module(callback: CallbackQuery, state: FSMContext):
 async def accept_module_deleting(callback: CallbackQuery):
     module_id = int(callback.data.split("_")[-1])
     await db.delete_module(module_id)
+    log.info(f"Пользователь {callback.message.from_user.id} удалил модуль {module_id}")
     await callback.message.answer("🗑 Модуль успешно удалён.")
     await callback.answer()
     modules = await db.get_all_modules()

@@ -1,4 +1,5 @@
 import db
+import logging
 from aiogram import Router, F
 from aiogram.filters import Command
 from aiogram.types import Message, CallbackQuery
@@ -15,6 +16,8 @@ from keyboards import (
 from handlers.admin.main_handlers import is_back
 
 admin_router = Router()
+
+log = logging.getLogger(__name__)
 
 
 # Показ уроков модуля
@@ -36,7 +39,7 @@ async def manage_lessons(callback: CallbackQuery):
 
 
 # Показ уроков модуля
-@admin_router.callback_query(F.data.startswith("view_lesson_"))
+@admin_router.callback_query(F.data.startswith("manage_lesson_"))
 async def manage_lesson(callback: CallbackQuery):
     lesson_id = int(callback.data.split("_")[-1])
     await callback.message.answer(
@@ -284,6 +287,7 @@ async def confirm_delete_lesson(callback: CallbackQuery):
 async def delete_lesson(callback: CallbackQuery):
     lesson_id = int(callback.data.split("_")[-1])
     await db.delete_lesson(lesson_id)
+    log.info(f"Пользователь {callback.message.from_user.id} удалил урок #{lesson_id}")
     await callback.message.answer("🗑 Урок успешно удалён.")
     await callback.answer()
 

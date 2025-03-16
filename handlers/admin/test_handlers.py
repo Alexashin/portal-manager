@@ -1,4 +1,5 @@
 import db
+import logging
 from aiogram import Router, F
 from aiogram.types import CallbackQuery, Message
 from aiogram.fsm.context import FSMContext
@@ -15,6 +16,8 @@ from keyboards import (
 )
 
 admin_router = Router()
+
+log = logging.getLogger(__name__)
 
 
 # Управление тестом
@@ -149,7 +152,9 @@ async def confirm_delete_test(callback: CallbackQuery):
 @admin_router.callback_query(F.data.startswith("accept_delete_test_"))
 async def delete_test_handler(callback: CallbackQuery):
     module_id = int(callback.data.split("_")[-1])
-
+    log.info(
+        f"Пользователь {callback.message.from_user.id} удалил тест к модулю #{module_id}"
+    )
     # Удаляем тест из базы данных
     await db.delete_test(module_id)
 

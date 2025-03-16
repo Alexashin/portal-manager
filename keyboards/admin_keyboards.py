@@ -71,7 +71,7 @@ def get_module_management_keyboard(module_id: int) -> InlineKeyboardMarkup:
             ],
             [
                 InlineKeyboardButton(
-                    text="🗑 Удалить модуль", callback_data=f"delete_module_{module_id}"
+                    text="❌ Удалить", callback_data=f"delete_module_{module_id}"
                 )
             ],
         ]
@@ -99,7 +99,7 @@ def get_lessons_management_keyboard(
         [
             InlineKeyboardButton(
                 text=f"📖 {lesson['title']}",
-                callback_data=f"view_lesson_{lesson['id']}",
+                callback_data=f"manage_lesson_{lesson['id']}",
             )
         ]
         for lesson in lessons
@@ -120,13 +120,18 @@ def get_lesson_management_keyboard(lesson_id: int) -> InlineKeyboardMarkup:
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text="✏️ Редактировать урок",
+                    text="✏️ Редактировать",
                     callback_data=f"edit_lesson_{lesson_id}",
                 )
             ],
             [
                 InlineKeyboardButton(
-                    text="🗑 Удалить урок", callback_data=f"delete_lesson_{lesson_id}"
+                    text="👀 Посмотреть", callback_data=f"view_lesson_{lesson_id}"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="❌ Удалить", callback_data=f"delete_lesson_{lesson_id}"
                 )
             ],
         ]
@@ -145,12 +150,12 @@ def get_test_management_keyboard(module_id: int) -> InlineKeyboardMarkup:
             ],
             [
                 InlineKeyboardButton(
-                    text="📋 Просмотреть тест", callback_data=f"view_test_{module_id}"
+                    text="👀 Просмотреть", callback_data=f"view_test_{module_id}"
                 )
             ],
             [
                 InlineKeyboardButton(
-                    text="❌ Удалить тест", callback_data=f"delete_test_{module_id}"
+                    text="❌ Удалить", callback_data=f"delete_test_{module_id}"
                 )
             ],
         ]
@@ -278,7 +283,7 @@ def get_user_managment_keyboard(user_id: int) -> InlineKeyboardMarkup:
             ],
             [
                 InlineKeyboardButton(
-                    text="🗑 Удалить", callback_data=f"delete_employee_{user_id}"
+                    text="❌ Удалить", callback_data=f"delete_employee_{user_id}"
                 )
             ],
             [

@@ -1,4 +1,5 @@
 import db
+import logging
 from aiogram import Router, F
 from aiogram.types import CallbackQuery
 from keyboards import (
@@ -10,12 +11,16 @@ from create_bot import bot
 
 admin_router = Router()
 
+log = logging.getLogger(__name__)
+
 
 # Отклонение аттестации (повторное обучение)
 @admin_router.callback_query(F.data.startswith("reject_exam_"))
 async def reject_exam(callback: CallbackQuery):
     user_id = int(callback.data.split("_")[-1])
-
+    log.info(
+        f"Пользователь {callback.message.from_user.id} отклонил аттестацию {user_id}."
+    )
     # Отмечаем только ПОСЛЕДНЮЮ попытку как "не пройденную"
     await db.reject_last_exam_attempt(user_id)
 
@@ -39,10 +44,14 @@ async def reject_exam(callback: CallbackQuery):
 @admin_router.callback_query(F.data.startswith("approve_exam_"))
 async def approve_exam(callback: CallbackQuery):
     user_id = int(callback.data.split("_")[-1])
-
+    log.info(
+        f"Пользователь {callback.message.from_user.id} принял аттестацию {user_id}."
+    )
     # Обновляем роль пользователя в БД
     await db.promote_to_employee(user_id)
-
+    log.info(
+        f"Пользователь {user_id} переведён в сотрудники по результатам аттестации."
+    )
     # Редактируем сообщение: удаляем кнопки и добавляем статус
     new_text = callback.message.text + "\n\n✅ <b>Аттестация принята</b>."
     await callback.message.edit_text(new_text)
@@ -133,7 +142,9 @@ async def confirm_delete_exam(callback: CallbackQuery):
 async def delete_test_exam(callback: CallbackQuery):
     # Удаляем аттестацию из базы данных
     await db.delete_all_final_exam_questions()
-
+    log.info(
+        f"Пользователь {callback.message.from_user.id} удалил финальную аттестацию."
+    )
     await callback.message.answer("❌ Аттестация успешно удалена.")
     await callback.answer()
 

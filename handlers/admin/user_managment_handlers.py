@@ -1,4 +1,5 @@
 import db
+import logging
 from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
@@ -10,6 +11,8 @@ from keyboards import (
 )
 
 admin_router = Router()
+
+log = logging.getLogger(__name__)
 
 
 # Добавление сотрудника
@@ -65,6 +68,9 @@ async def set_employee_role(callback: CallbackQuery, state: FSMContext):
     await callback.message.answer(
         f"✅ Пользователь {full_name} ({user_id}) добавлен в систему как {role_name}."
     )
+    log.info(
+        f"Пользователь {full_name} ({user_id}) добавлен в систему как {role_name}, менеджер {callback.from_user.id}"
+    )
     await state.clear()
 
 
@@ -111,6 +117,9 @@ async def set_role(callback: CallbackQuery):
 
     await db.update_user_role(user_id, role)
     user_info = await db.get_employee_info(user_id)
+    log.info(
+        f"Менеджер {callback.from_user.id} изменил роль {user_info['full_name']} на {role_name}."
+    )
     await callback.message.answer(
         f"✅ Пользователь {user_info['full_name']} теперь {role_name}."
     )
