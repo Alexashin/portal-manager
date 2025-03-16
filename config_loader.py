@@ -9,9 +9,10 @@ load_dotenv()
 # Уровень логирования и лимит логов
 LOGGER_LVL = os.getenv("LOGGER_LVL", "INFO").upper()
 MAX_LOGS = int(os.getenv("MAX_LOGS", 5))
+TZ = os.getenv("TZ", "Europe/Moscow")
 
 # Инициализируем логирование
-init_logger(LOGGER_LVL, MAX_LOGS)
+init_logger(LOGGER_LVL, MAX_LOGS, TZ=TZ)
 
 log = logging.getLogger(__name__)
 
@@ -29,10 +30,6 @@ if not BOT_TOKEN:
 POSTGRES_DB = os.getenv("POSTGRES_DB")
 POSTGRES_USER = os.getenv("POSTGRES_USER")
 POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD")
-
-# Разные переменные
-
-TZ = os.getenv("TZ", "Europe/Moscow")
 
 # Строка подключения к БД
 DATABASE_URL = (
