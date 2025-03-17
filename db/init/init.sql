@@ -1,105 +1,146 @@
--- Таблица ролей (права доступа к боту)
-CREATE TABLE
-    IF NOT EXISTS roles (
-        id SERIAL PRIMARY KEY,
-        name VARCHAR(50) UNIQUE NOT NULL -- Примеры: manager, employee, intern
-    );
+-- Adminer 4.8.1 PostgreSQL 17.2 (Debian 17.2-1.pgdg120+1) dump
 
--- Таблица пользователей
-CREATE TABLE
-    IF NOT EXISTS users (
-        tg_id BIGINT PRIMARY KEY, -- Telegram ID пользователя
-        role_id INT NOT NULL REFERENCES roles (id), -- Связь с таблицей ролей по названию роли
-        full_name TEXT,
-        created_at TIMESTAMP DEFAULT NOW ()
-    );
+\connect "portal_db";
 
--- Таблица для хранения обучающих модулей
-CREATE TABLE IF NOT EXISTS modules (
-    id SERIAL PRIMARY KEY,                  -- Уникальный идентификатор модуля
-    title TEXT NOT NULL,                    -- Название модуля
-    description TEXT,                       -- Описание модуля
-    created_at TIMESTAMP DEFAULT NOW()      -- Дата создания модуля
-);
-
--- Таблица для хранения уроков в модулях
-CREATE TABLE IF NOT EXISTS lessons (
-    id SERIAL PRIMARY KEY,                  -- Уникальный идентификатор урока
-    module_id INT REFERENCES modules(id) ON DELETE CASCADE,  -- Связь с модулем
-    title TEXT NOT NULL,                    -- Название урока
-    content TEXT,                           -- Текстовое содержание урока
-    file_ids TEXT[],                        -- Список ID загруженных файлов (документы, изображения)
-    video_ids TEXT[],                       -- Список ID видеоматериалов
-    lesson_order INT NOT NULL,              -- Порядок урока в модуле
-    created_at TIMESTAMP DEFAULT NOW()      -- Дата добавления урока
-);
-
--- Таблица для хранения тестов после модулей
-CREATE TABLE IF NOT EXISTS tests (
-    id SERIAL PRIMARY KEY,                  -- Уникальный идентификатор теста
-    module_id INT NOT NULL REFERENCES modules(id) ON DELETE CASCADE,  -- Привязка к модулю
-    question TEXT NOT NULL,                 -- Вопрос
-    option_1 TEXT NOT NULL,                 -- Вариант 1
-    option_2 TEXT NOT NULL,                 -- Вариант 2
-    option_3 TEXT NOT NULL,                 -- Вариант 3
-    option_4 TEXT NOT NULL,                 -- Вариант 4
-    correct_option INT NOT NULL             -- Номер правильного варианта
-);
-
--- Таблица для хранения результатов тестов после модулей
-CREATE TABLE IF NOT EXISTS user_module_progress (
-    id SERIAL PRIMARY KEY,
-    user_id BIGINT NOT NULL REFERENCES users(tg_id) ON DELETE CASCADE,
-    module_id INT NOT NULL REFERENCES modules(id) ON DELETE CASCADE,
-    is_completed BOOLEAN DEFAULT FALSE,
-    can_access BOOLEAN DEFAULT FALSE,
-    last_attempt TIMESTAMP DEFAULT NOW(),
-    UNIQUE (user_id, module_id) 
-);
-
--- Таблица вопросов аттестации
-CREATE TABLE IF NOT EXISTS final_exam_questions (
-    id SERIAL PRIMARY KEY,
-    question TEXT NOT NULL,                 -- Текст вопроса
-    is_open_question BOOLEAN DEFAULT FALSE, -- Если TRUE, значит, нужен текстовый ответ
-    option_1 TEXT,                          -- Вариант 1 (если is_open_question = FALSE)
-    option_2 TEXT,
-    option_3 TEXT,
-    option_4 TEXT,
-    correct_option INT                      -- Номер правильного ответа (если is_open_question = FALSE)
-);
-
--- Таблица ответов пользователей
-CREATE TABLE IF NOT EXISTS final_exam_answers (
-    id SERIAL PRIMARY KEY,
-    user_id BIGINT NOT NULL REFERENCES users(tg_id) ON DELETE CASCADE,
-    question_id INT NOT NULL REFERENCES final_exam_questions(id) ON DELETE CASCADE,
-    chosen_option INT,                        -- Выбранный вариант ответа (если вопрос с вариантами)
-    open_answer TEXT,                         -- Развёрнутый ответ (если вопрос открытый)
-    is_correct BOOLEAN                        -- TRUE, если ответ правильный
-);
-
--- Таблица результатов аттестации
-CREATE TABLE IF NOT EXISTS final_exam_results (
-    id SERIAL PRIMARY KEY,
-    user_id BIGINT NOT NULL REFERENCES users(tg_id) ON DELETE CASCADE,
-    total_questions INT NOT NULL,             -- Количество вопросов
-    correct_answers INT NOT NULL,             -- Количество правильных ответов
-    passed BOOLEAN DEFAULT FALSE,             -- Итоговый результат (TRUE, если прошёл)
-    exam_date TIMESTAMP DEFAULT NOW()         -- Дата прохождения
-);
+CREATE TABLE "public"."bot_settings" (
+    "key" text NOT NULL,
+    "value" text NOT NULL,
+    CONSTRAINT "bot_settings_pkey" PRIMARY KEY ("key")
+) WITH (oids = false);
 
 
--- Наполнение таблицы ролей
-INSERT INTO
-    roles (name)
-VALUES
-    ('manager'),
-    ('employee'),
-    ('intern');
+CREATE SEQUENCE final_exam_answers_id_seq INCREMENT 1 MINVALUE 1 MAXVALUE 2147483647 CACHE 1;
 
--- Наполнение таблицы пользователей
-INSERT INTO
-    users (tg_id, role_id, full_name)
-VALUES
-    (595410701, 1, 'Алексашин Артем Александрович');
+CREATE TABLE "public"."final_exam_answers" (
+    "id" integer DEFAULT nextval('final_exam_answers_id_seq') NOT NULL,
+    "user_id" bigint NOT NULL,
+    "question_id" integer NOT NULL,
+    "chosen_option" integer,
+    "open_answer" text,
+    "is_correct" boolean,
+    "attempt_number" integer DEFAULT '1',
+    "timestamp" timestamp DEFAULT now(),
+    CONSTRAINT "final_exam_answers_pkey" PRIMARY KEY ("id")
+) WITH (oids = false);
+
+
+CREATE SEQUENCE final_exam_questions_id_seq INCREMENT 1 MINVALUE 1 MAXVALUE 2147483647 CACHE 1;
+
+CREATE TABLE "public"."final_exam_questions" (
+    "id" integer DEFAULT nextval('final_exam_questions_id_seq') NOT NULL,
+    "question" text NOT NULL,
+    "is_open_question" boolean DEFAULT false,
+    "option_1" text,
+    "option_2" text,
+    "option_3" text,
+    "option_4" text,
+    "correct_option" integer,
+    CONSTRAINT "final_exam_questions_pkey" PRIMARY KEY ("id")
+) WITH (oids = false);
+
+
+CREATE SEQUENCE final_exam_results_id_seq INCREMENT 1 MINVALUE 1 MAXVALUE 2147483647 CACHE 1;
+
+CREATE TABLE "public"."final_exam_results" (
+    "id" integer DEFAULT nextval('final_exam_results_id_seq') NOT NULL,
+    "user_id" bigint NOT NULL,
+    "total_questions" integer NOT NULL,
+    "correct_answers" integer NOT NULL,
+    "passed" boolean DEFAULT false,
+    "exam_date" timestamp DEFAULT now(),
+    "attempt_number" integer DEFAULT '1',
+    "attempt_date" timestamp DEFAULT now(),
+    CONSTRAINT "final_exam_results_pkey" PRIMARY KEY ("id")
+) WITH (oids = false);
+
+
+CREATE SEQUENCE lessons_id_seq INCREMENT 1 MINVALUE 1 MAXVALUE 2147483647 CACHE 1;
+
+CREATE TABLE "public"."lessons" (
+    "id" integer DEFAULT nextval('lessons_id_seq') NOT NULL,
+    "module_id" integer,
+    "title" text NOT NULL,
+    "content" text,
+    "file_ids" text[],
+    "video_ids" text[],
+    "lesson_order" integer NOT NULL,
+    "created_at" timestamp DEFAULT now(),
+    CONSTRAINT "lessons_pkey" PRIMARY KEY ("id")
+) WITH (oids = false);
+
+
+CREATE SEQUENCE modules_id_seq INCREMENT 1 MINVALUE 1 MAXVALUE 2147483647 CACHE 1;
+
+CREATE TABLE "public"."modules" (
+    "id" integer DEFAULT nextval('modules_id_seq') NOT NULL,
+    "title" text NOT NULL,
+    "description" text,
+    "created_at" timestamp DEFAULT now(),
+    CONSTRAINT "modules_pkey" PRIMARY KEY ("id")
+) WITH (oids = false);
+
+
+CREATE SEQUENCE roles_id_seq INCREMENT 1 MINVALUE 1 MAXVALUE 2147483647 CACHE 1;
+
+CREATE TABLE "public"."roles" (
+    "id" integer DEFAULT nextval('roles_id_seq') NOT NULL,
+    "name" character varying(50) NOT NULL,
+    CONSTRAINT "roles_name_key" UNIQUE ("name"),
+    CONSTRAINT "roles_pkey" PRIMARY KEY ("id")
+) WITH (oids = false);
+
+
+CREATE SEQUENCE tests_id_seq INCREMENT 1 MINVALUE 1 MAXVALUE 2147483647 CACHE 1;
+
+CREATE TABLE "public"."tests" (
+    "id" integer DEFAULT nextval('tests_id_seq') NOT NULL,
+    "module_id" integer NOT NULL,
+    "question" text NOT NULL,
+    "option_1" text NOT NULL,
+    "option_2" text NOT NULL,
+    "option_3" text NOT NULL,
+    "option_4" text NOT NULL,
+    "correct_option" integer NOT NULL,
+    CONSTRAINT "tests_pkey" PRIMARY KEY ("id")
+) WITH (oids = false);
+
+
+CREATE SEQUENCE user_module_progress_id_seq INCREMENT 1 MINVALUE 1 MAXVALUE 2147483647 CACHE 1;
+
+CREATE TABLE "public"."user_module_progress" (
+    "id" integer DEFAULT nextval('user_module_progress_id_seq') NOT NULL,
+    "user_id" bigint NOT NULL,
+    "module_id" integer NOT NULL,
+    "is_completed" boolean DEFAULT false,
+    "can_access" boolean DEFAULT false,
+    "last_attempt" timestamp DEFAULT now(),
+    CONSTRAINT "unique_user_module" UNIQUE ("user_id", "module_id"),
+    CONSTRAINT "user_module_progress_pkey" PRIMARY KEY ("id"),
+    CONSTRAINT "user_module_progress_user_id_module_id_key" UNIQUE ("user_id", "module_id")
+) WITH (oids = false);
+
+
+CREATE TABLE "public"."users" (
+    "tg_id" bigint NOT NULL,
+    "role_id" integer NOT NULL,
+    "full_name" text,
+    "created_at" timestamp DEFAULT now(),
+    CONSTRAINT "users_pkey" PRIMARY KEY ("tg_id")
+) WITH (oids = false);
+
+
+ALTER TABLE ONLY "public"."final_exam_answers" ADD CONSTRAINT "final_exam_answers_question_id_fkey" FOREIGN KEY (question_id) REFERENCES final_exam_questions(id) ON DELETE CASCADE NOT DEFERRABLE;
+ALTER TABLE ONLY "public"."final_exam_answers" ADD CONSTRAINT "final_exam_answers_user_id_fkey" FOREIGN KEY (user_id) REFERENCES users(tg_id) ON DELETE CASCADE NOT DEFERRABLE;
+
+ALTER TABLE ONLY "public"."final_exam_results" ADD CONSTRAINT "final_exam_results_user_id_fkey" FOREIGN KEY (user_id) REFERENCES users(tg_id) ON DELETE CASCADE NOT DEFERRABLE;
+
+ALTER TABLE ONLY "public"."lessons" ADD CONSTRAINT "lessons_module_id_fkey" FOREIGN KEY (module_id) REFERENCES modules(id) ON DELETE CASCADE NOT DEFERRABLE;
+
+ALTER TABLE ONLY "public"."tests" ADD CONSTRAINT "tests_module_id_fkey" FOREIGN KEY (module_id) REFERENCES modules(id) ON DELETE CASCADE NOT DEFERRABLE;
+
+ALTER TABLE ONLY "public"."user_module_progress" ADD CONSTRAINT "user_module_progress_module_id_fkey" FOREIGN KEY (module_id) REFERENCES modules(id) ON DELETE CASCADE NOT DEFERRABLE;
+ALTER TABLE ONLY "public"."user_module_progress" ADD CONSTRAINT "user_module_progress_user_id_fkey" FOREIGN KEY (user_id) REFERENCES users(tg_id) ON DELETE CASCADE NOT DEFERRABLE;
+
+ALTER TABLE ONLY "public"."users" ADD CONSTRAINT "users_role_id_fkey" FOREIGN KEY (role_id) REFERENCES roles(id) NOT DEFERRABLE;
+
+-- 2025-03-17 15:31:46.096155+03
