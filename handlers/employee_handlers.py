@@ -1,4 +1,5 @@
 import db
+import logging
 from aiogram_run import bot
 from aiogram import Router, F
 from aiogram.types import (
@@ -16,6 +17,8 @@ from keyboards import (
 from filters import RoleFilter
 
 employee_router = Router()
+
+log = logging.getLogger(__name__)
 
 
 # Старт для сотрудника
@@ -53,9 +56,8 @@ async def open_module(callback: CallbackQuery, state: FSMContext):
         return
 
     await state.update_data(module_id=module_id, lesson_index=0)
-    await callback.message.answer(
-        "Начато изучение материалов!", reply_markup=get_back_keyboard()
-    )
+    # await callback.message.edit_text("✅ Начат просмотр!", reply_markup=get_back_keyboard())
+    await callback.message.edit_text("✅ Начат просмотр!")
 
     data = await state.get_data()
     temporary_msgs = data.get("temporary_msgs", [])
@@ -115,14 +117,22 @@ async def send_lesson(message: Message, state: FSMContext, index, module_id):
     new_temporary_msgs = data.get("temporary_msgs", [])
 
     keyboard = InlineKeyboardMarkup(inline_keyboard=[buttons])
-    msg = await message.answer(text)
+    msg = await message.answer(text, reply_markup=get_back_keyboard())
     new_temporary_msgs.append(msg.message_id)
     for file_id in lesson.get("file_ids", []):
-        msg = await message.answer_document(file_id)
-        new_temporary_msgs.append(msg.message_id)
+        try:
+            msg = await message.answer_document(file_id)
+            new_temporary_msgs.append(msg.message_id)
+        except Exception as ex:
+            log.error(f"Ошибка отправки файла! Модуль #{module_id} урок #{index}: {ex}")
+            await message.answer("Ошибка отправки файла!")
     for video_id in lesson.get("video_ids", []):
-        msg = await message.answer_video(video_id)
-        new_temporary_msgs.append(msg.message_id)
+        try:
+            msg = await message.answer_video(video_id)
+            new_temporary_msgs.append(msg.message_id)
+        except Exception as ex:
+            log.error(f"Ошибка отправки видео! Модуль #{module_id} урок #{index}: {ex}")
+            await message.answer("Ошибка отправки видео!")
     msg = await message.answer(f"{lesson['content']}")
     new_temporary_msgs.append(msg.message_id)
     msg = await message.answer("<b>Продолжим?</b>", reply_markup=keyboard)

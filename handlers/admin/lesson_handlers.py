@@ -173,6 +173,58 @@ async def skip_lesson_video(message: Message, state: FSMContext):
 
 
 """
+_____________________________________ПРОСМОТР УРОКА_____________________________________
+"""
+
+
+@admin_router.callback_query(F.data.startswith("view_lesson_"))
+async def view_lesson_content(callback: CallbackQuery):
+    """
+    Обработчик для просмотра урока модератором.
+    """
+    lesson_id = int(callback.data.split("_")[-1])
+    user_id = callback.from_user.id
+
+    # Получаем данные урока
+    lesson = await db.get_lesson_by_id(lesson_id)
+    if not lesson:
+        await callback.message.answer("❗ Урок не найден.")
+        await callback.answer()
+        return
+
+    # Логируем действие модератора
+    log.info(f"Модератор {user_id} посмотрел урок {lesson_id}.")
+
+    # Формируем сообщение для отправки
+    text = f"📖 <b>{lesson['title']}</b>\n\n{lesson['content']}\n\n"
+
+    # Проверяем файлы и видео
+    if lesson.get("file_ids"):
+        text += "📎 В этом уроке есть прикрепленные файлы.\n"
+    if lesson.get("video_ids"):
+        text += "🎥 В этом уроке есть видео.\n"
+
+    # Отправляем информацию модератору
+    await callback.message.answer(text, parse_mode="HTML")
+
+    # Если есть файлы, отправляем их отдельно
+    for file_id in lesson.get("file_ids", []):
+        try:
+            await callback.message.answer_document(file_id)
+        except Exception as ex:
+            log.error(f"Ошибка отправки файла! Урок id #{lesson_id}: {ex}")
+            await callback.message.answer("Ошибка отправки файла!")
+    # Если есть видео, отправляем его отдельно
+    for video_id in lesson.get("video_ids", []):
+        try:
+            await callback.message.answer_video(video_id)
+        except Exception as ex:
+            log.error(f"Ошибка отправки видео! Урок id #{lesson_id}: {ex}")
+            await callback.message.answer("Ошибка отправки видео!")
+    await callback.answer()
+
+
+"""
 _____________________________________РЕДАКТИРОВАНИЕ УРОКА_________________________________________
 """
 

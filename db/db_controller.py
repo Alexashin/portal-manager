@@ -583,3 +583,22 @@ async def update_bot_setting(setting_key: str, new_value: str):
     conn = await get_db_connection()
     async with conn.acquire() as connection:
         await connection.execute(query, setting_key, new_value)
+
+
+async def get_lesson_by_id(lesson_id: int):
+    """
+    Получает информацию об уроке из БД.
+    """
+    query = """
+    SELECT id, module_id, title, content, file_ids, video_ids, lesson_order, created_at
+    FROM lessons
+    WHERE id = $1
+    """
+    conn = await get_db_connection()
+    try:
+        async with conn.acquire() as connection:
+            lesson = await connection.fetchrow(query, lesson_id)
+            return dict(lesson) if lesson else None
+    except Exception as e:
+        log.error(f"Ошибка при получении урока {lesson_id}: {e}")
+        return None

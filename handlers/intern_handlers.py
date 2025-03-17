@@ -1,4 +1,5 @@
 import db
+import logging
 from aiogram_run import bot
 from aiogram import Router, F
 from aiogram.types import (
@@ -22,6 +23,8 @@ from keyboards import (
 )
 
 intern_router = Router()
+
+log = logging.getLogger(__name__)
 
 
 # Обработчик кнопки "🔙 Назад"
@@ -98,7 +101,7 @@ async def open_module(callback: CallbackQuery, state: FSMContext) -> None:
         await callback.message.answer("❗ В этом модуле пока нет уроков.")
         return
     await state.update_data(module_id=module_id, lesson_index=0)
-    await callback.message.answer("Начато обучение!", reply_markup=get_back_keyboard())
+    await callback.message.edit_text("✅ Начато обучение!")
     data = await state.get_data()
     temporary_msgs = data.get("temporary_msgs", [])
     if temporary_msgs != []:
@@ -156,15 +159,27 @@ async def send_lesson(
     new_temporary_msgs = data.get("temporary_msgs", [])
 
     keyboard = InlineKeyboardMarkup(inline_keyboard=[buttons])
-    msg = await message.answer(text)
+    msg = await message.answer(text, reply_markup=get_back_keyboard())
     new_temporary_msgs.append(msg.message_id)
     for file_id in lesson.get("file_ids", []):
-        msg = await message.answer_document(file_id)
-        new_temporary_msgs.append(msg.message_id)
+        try:
+            msg = await message.answer_document(file_id)
+            new_temporary_msgs.append(msg.message_id)
+        except Exception as ex:
+            log.error(
+                f"Ошибка отправки файла! Модуль #{module_id}; урок #{index}: {ex}"
+            )
+            await message.answer("Ошибка отправки файла!")
 
     for video_id in lesson.get("video_ids", []):
-        msg = await message.answer_video(video_id)
-        new_temporary_msgs.append(msg.message_id)
+        try:
+            msg = await message.answer_video(video_id)
+            new_temporary_msgs.append(msg.message_id)
+        except Exception as ex:
+            log.error(
+                f"Ошибка отправки видео! Модуль #{module_id}; урок #{index}: {ex}"
+            )
+            await message.answer("Ошибка отправки видео!")
     msg = await message.answer(f"{lesson['content']}")
     new_temporary_msgs.append(msg.message_id)
     msg = await message.answer("<b>Продолжим?</b>", reply_markup=keyboard)
@@ -282,12 +297,16 @@ async def finish_test(message: Message, state: FSMContext) -> None:
                 f"🔓 Доступ к следующему модулю открыт!",
                 reply_markup=get_intern_keyboard(),
             )
+            log.info(
+                f"Пользователь {message.chat.id} открыл доступ к модулю {next_module_id}."
+            )
         else:
             await message.answer(
                 f"🎉 Вы успешно прошли тест модуля! Правильных ответов: {correct_answers} из {total_questions}.\n"
                 f"✅ Это был последний модуль!",
                 reply_markup=get_intern_keyboard(),
             )
+            log.info(f"Пользователь {message.chat.id} завершил обучение.")
     else:
         await message.answer(
             f"❌ Тест не пройден. Правильных ответов: {correct_answers} из {total_questions}.\n"
@@ -446,7 +465,7 @@ async def finish_final_exam(message: Message, state: FSMContext) -> None:
 
     # Отправляем уведомление администратору
     await notify_admin_about_exam(
-        user_id, correct_test_answers, total_test_questions, passed, open_answers
+        user_id, correct_test_answers, total_test_questions, passed
     )
 
     # Очистка состояния FSM
